@@ -1,2 +1,30 @@
-.stack-work/
-*~
+# Stack and Cabal related
+stack-work/
+dist/
+*.cabal-sandbox/
+
+
+# GHC and Haskell build artifacts
+*.hi
+*.o
+*.a
+*.hschi
+
+# Temporary files from text editors or IDEs
+*~ # Emacs
+*.swp # Vim
+*.log # Editor logs
+*.stack-work/ # Stack's internal build files
+.idea/ # JetBrains IDEs (e.g., IntelliJ, PhpStorm)
+.vscode/ # VSCode settings
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Haskell project files
+cabal-dev/
+cabal.sandbox.config
+
+# Environment variable files
+.env
