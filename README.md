@@ -6,11 +6,16 @@ Lexa was chosen for its sleek, modern feel and subtle reference to _lexing_, the
 
 To build and run Lexa from the terminal, follow these steps:
 
-#### 1. **Clone the repository**
+### 1. **Clone the repository**
 
-First, clone the Lexa project repository to your local machine.
+First, clone the Lexa project repository to your local machine:
 
-#### 2. **Install Stack (if not already installed)**
+```bash
+git clone https://github.com/wilvang/lexa-stack-interpreter.git
+cd lexa-stack-interpreter
+```
+
+### 2. **Install Stack (if not already installed)**
 
 Make sure you have **Stack** installed. If not, you can install it using the following command:
 
@@ -26,7 +31,7 @@ brew install haskell-stack
 curl -sSL https://get.haskellstack.org/ | sh
 ```
 
-#### 3. **Build the project**
+### 3. **Build the project**
 
 Use Stack to build the project:
 
@@ -36,7 +41,7 @@ stack build
 
 This will download dependencies and build the project.
 
-#### 4. **Run Lexa (REPL mode)**
+### 4. **Run Lexa (REPL mode)**
 
 To run Lexa in **REPL mode** (interactive mode), use the following command:
 
@@ -45,3 +50,14 @@ stack run -- -r
 ```
 
 The `-- -r` syntax passes the `-r` argument to the program, which starts the REPL mode.
+
+### 5. **Run a Program (Batch mode)**
+
+To run a program from a file in batch mode, you can create a file with the .lexa extension and then execute it like this:
+
+```bash
+stack run -- your_program.lexa
+```
+
+Where `your_program.lexa` is the name of the file containing the program code.
+
