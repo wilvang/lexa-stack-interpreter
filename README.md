@@ -56,7 +56,7 @@ The `-- -r` syntax passes the `-r` argument to the program, which starts the REP
 To run a program from a file in batch mode, you can create a file with the .lexa extension and then execute it like this:
 
 ```bash
-stack run -- your_program.lexa
+stack run -- /path/to/your_program.lexa
 ```
 
 Where `your_program.lexa` is the name of the file containing the program code.
