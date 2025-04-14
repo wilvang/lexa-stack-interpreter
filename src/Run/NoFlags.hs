@@ -1,1 +1,2 @@
--- runNoFlags :: IO ()
+module Run.NoFlags where
+
