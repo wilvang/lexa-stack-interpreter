@@ -25,7 +25,13 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Interpreter.Builtins
+      Interpreter.Eval
+      Interpreter.Parser
+      Interpreter.Types
+      Run.File
+      Run.NoFlags
+      Run.REPL
   other-modules:
       Paths_lexa
   autogen-modules:
