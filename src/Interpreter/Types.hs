@@ -146,7 +146,7 @@ data Op
 data Token
   = TokVal Value   -- A token holding a value (e.g., 10, "hello")
   | TokOp Op       -- A token holding an operation (e.g., +, :=, if)
-  deriving (Eq) -- Eq for comparison, Show for easy printing (for debugging)
+  deriving (Eq) -- Eq for comparison between two tokens
 
 -- Custom Show instance for 'Value', for printing values.
 instance Show Value where
@@ -154,7 +154,7 @@ instance Show Value where
   show (VFloat f)     = show f               -- Display a floating-point number as is
   show (VBool b)      = show b               -- Display a boolean as is (True or False)
   show (VString s)    = show s               -- Display a string as is (e.g., "hello")
-  show (VList xs)     = "[ " ++ unwords (map show xs) ++ " ]"  -- Display list of values, separated by space
+  show (VList xs)     = "[ " ++ unwords (show <$> xs) ++ " ]"  -- Display list of values, separated by space
   show (VQuotation q) = "{ " ++ unwords (show <$> q) ++ " }"   -- Display a quotation (code block) as space-separated tokens
   show (VSymbol s)    = s                     -- Display the symbol as is (e.g., variable name 'name')
 
