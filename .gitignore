@@ -1,5 +1,5 @@
 # Stack and Cabal related
-stack-work/
+.stack-work/
 dist/
 *.cabal-sandbox/
 
