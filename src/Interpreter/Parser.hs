@@ -46,3 +46,19 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
       , ("fun", OpFun)
       ]
 
+-- | Try to parse an integer from a string.
+-- Returns a token wrapped in 'VInt' if successful.
+maybeParseInt :: String -> Maybe Token
+maybeParseInt s = (TokVal . VInt) <$> (readMaybe s :: Maybe Int)
+
+-- | Try to parse a floating point number from a string.
+-- Returns a token wrapped in 'VFloat' if successful.
+maybeParseFloat :: String -> Maybe Token
+maybeParseFloat s = (TokVal . VFloat) <$> (readMaybe s :: Maybe Double)
+
+-- | Try to parse a boolean value from a string.
+-- Accepts only "True" or "False" (case-sensitive).
+maybeParseBool :: String -> Maybe Token
+maybeParseBool "True"  = Just (TokVal (VBool True))
+maybeParseBool "False" = Just (TokVal (VBool False))
+maybeParseBool _       = Nothing
