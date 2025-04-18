@@ -1,4 +1,4 @@
-module Interpreter.Parser where
+module Interpreter.Parser (parseTokens, parseToken) where
 
 import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
