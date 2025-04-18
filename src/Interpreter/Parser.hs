@@ -5,12 +5,15 @@ import Data.Maybe (fromMaybe)
 import Control.Applicative ((<|>))
 import qualified Data.Map as M
 import Interpreter.Types
+import Interpreter.Tokenize (splitPreserveTokens)
+port Interpreter.Error (ParserError)
 
 
--- | Convert an input string into a list of tokens by splitting 
--- it on whitespace.
-parseTokens :: String -> [Token]
-parseTokens = map parseToken . words
+-- | Convert an input string into a list of tokens by splitting it on whitespace.
+-- The function uses 'splitPreserveTokens' to split the input, and then applies 'parseToken' to each string.
+-- Returns an 'Either' with a 'ParserError' on failure or a list of 'Token' on success.
+parseTokens :: String -> Either ParserError [Token]
+parseTokens = fmap (fmap parseToken) . splitPreserveTokens
 
 -- | Parse a single string into a 'Token'. This function 
 -- attempts to match the string to different token types
