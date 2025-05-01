@@ -65,6 +65,7 @@ test-suite lexa-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Doctest
       Paths_lexa
   autogen-modules:
       Paths_lexa
@@ -75,5 +76,6 @@ test-suite lexa-test
       base >=4.7 && <5
     , containers
     , doctest
+    , hspec
     , lexa
   default-language: Haskell2010
