@@ -137,6 +137,7 @@ data Op
   | OpExec      -- Execute a quotation (block of code)
   | OpIf        -- If statement (x if condition)
   | OpTimes     -- Repeat block n times
+  | OpLoop      -- Loop trough a block, based on a condition
   | OpAssign    -- Assignment operator (e.g., name := value)
   | OpFun       -- Function definition (e.g., fun inc { 1 + })
   deriving (Eq)  -- Eq allows for comparison (e.g., checking equality between two operations)
@@ -174,6 +175,7 @@ instance Show Op where
   show OpExec   = "exec"   -- Display the execute operation as "exec"
   show OpIf     = "if"     -- Display the if operation as "if"
   show OpTimes  = "times"  -- Display the times operation as "times"
+  show OpLoop   = "loop"   -- Display the loop operation as "loop"
   show OpAssign = ":="     -- Display the assignment operation as ":="
   show OpFun    = "fun"    -- Display the function definition as "fun"
 

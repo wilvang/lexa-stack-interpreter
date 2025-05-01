@@ -83,6 +83,7 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
       , ("exec", OpExec)
       , ("if", OpIf)
       , ("times", OpTimes)
+      , ("loop", OpLoop)
       , (":=", OpAssign)
       , ("fun", OpFun)
       ]
