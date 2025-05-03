@@ -2,6 +2,7 @@
 module Interpreter.Eval (interpret) where
 
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
+import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
 import Interpreter.Parser
@@ -36,6 +37,8 @@ type Stack = [Value]
 -- >>> interpret "}"
 -- Right [}]
 --
+-- >>> interpret "10 9 - 0.0 >"
+-- Right [True]
 -- >>> interpret "true false +"
 -- Left (ProgramError ExpectedBoolOrNumber)
 interpret :: String -> Either BError Stack
@@ -84,13 +87,13 @@ step (TokOp op)  = case op of
   OpMul    -> applyBinaryOp safeMul 
   OpDiv    -> applyBinaryOp safeDiv 
   OpIDiv   -> applyBinaryOp safeIntDiv 
+
+  -- Comparison operations
+  OpLT     -> applyBinaryOp safeLT 
+  OpGT     -> applyBinaryOp safeGT 
+  OpEQ     -> applyBinaryOp safeEQ
   _        -> discardStack
 {-
-  -- Comparison operations
-  OpLT     -> applyOpComparison (<) 
-  OpGT     -> applyOpComparison (>) 
-  OpEQ     -> applyOpComparison (==)
-
   -- Logical operations
   OpAnd    -> applyLogicalOp (&&)
   OpOr     -> applyLogicalOp (||)
