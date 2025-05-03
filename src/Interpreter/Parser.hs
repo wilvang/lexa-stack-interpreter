@@ -7,7 +7,7 @@ import Control.Applicative ((<|>))
 import qualified Data.Map as M
 import Interpreter.Types
 import Interpreter.Tokenize (splitPreserveTokens)
-import Interpreter.Error (ParserError, BError)
+import Interpreter.Error (BError)
 
 -- | Convert an input string into a list of tokens by splitting it on whitespace.
 -- The function uses 'splitPreserveTokens' to split the input, and then applies 'parseToken' to each string.
