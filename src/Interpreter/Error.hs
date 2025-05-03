@@ -2,9 +2,9 @@ module Interpreter.Error (ParserError(..), ProgramError(..)) where
 
 -- | Represents parser errors.
 data ParserError
-  = IncompleteQuotation [String]
-  | IncompleteList [String]
-  | IncompleteString [String]
+  = IncompleteQuotation String
+  | IncompleteList String
+  | IncompleteString String
   | UnexpectedEnd Char
   deriving Show
 
