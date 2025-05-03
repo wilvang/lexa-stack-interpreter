@@ -35,7 +35,7 @@ step (TokOp op)  = case op of
   OpMul    -> applyBinaryOp safeMul 
   OpDiv    -> applyBinaryOp safeDiv 
   OpIDiv   -> applyBinaryOp safeIntDiv 
-
+  _        -> discardStack
 {-
   -- Comparison operations
   OpLT     -> applyOpComparison (<) 
@@ -73,6 +73,23 @@ step (TokOp op)  = case op of
   -- Higher-order functions
   OpFoldl  -> applyFoldlOp   -- Apply a fold-left operation on a list
 -}
+
+-- | Discards the stack and returns a `ProgramError`.
+-- This function is used when an invalid or unsupported operation is encountered.
+-- It consumes the current stack and returns a `Left` value with a specific error.
+--
+-- == Examples:
+--
+-- >>> discardStack []
+-- Left (ProgramError UnknownSymbol)
+--
+-- >>> discardStack [VInt 5]
+-- Left (ProgramError UnknownSymbol)
+--
+-- This function is typically used when an unrecognized operation is encountered,
+-- and it explicitly discards the stack to avoid continuing with invalid state.
+discardStack :: Stack -> Either BError Stack
+discardStack _ = Left . ProgramError $ UnknownSymbol
 
 -- | Applies a binary operation to the top two elements of the stack.
 -- This function takes an operator and a stack, applies the operator to the 
