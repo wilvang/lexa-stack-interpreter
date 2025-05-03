@@ -1,4 +1,4 @@
-module Interpreter.Error (ParserError(..), ProgramError(..)) where
+module Interpreter.Error (ParserError(..), ProgramError(..), BError(..)) where  
 
 -- | Represents parser errors.
 data ParserError
@@ -6,7 +6,7 @@ data ParserError
   | IncompleteList String
   | IncompleteString String
   | UnexpectedEnd Char
-  deriving Show
+  deriving (Eq, Show)
 
 
 -- | Represents program execution errors.
@@ -22,5 +22,10 @@ data ProgramError =
    | DivisionByZero
    | ProgramFinishedWithMultipleValues
    | NumberConversionError
-     deriving (Eq, Show)
+   deriving (Eq, Show)
 
+-- | Represents all program errors
+data BError = 
+  ProgramError ProgramError 
+  | ParserError ParserError 
+  deriving (Eq, Show)

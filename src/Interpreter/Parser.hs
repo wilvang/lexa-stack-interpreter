@@ -7,7 +7,7 @@ import Control.Applicative ((<|>))
 import qualified Data.Map as M
 import Interpreter.Types
 import Interpreter.Tokenize (splitPreserveTokens)
-import Interpreter.Error (ParserError)
+import Interpreter.Error (ParserError, BError)
 
 -- | Convert an input string into a list of tokens by splitting it on whitespace.
 -- The function uses 'splitPreserveTokens' to split the input, and then applies 'parseToken' to each string.
@@ -20,8 +20,8 @@ import Interpreter.Error (ParserError)
 -- Right ["hello",True,[ 1 2 ]]
 --
 -- >>> parseTokens "1 2 [ 2 3 4 ] { \" Oh no \""
--- Left (IncompleteQuotation "{ \" Oh no \"")
-parseTokens :: String -> Either ParserError [Token]
+-- Left (ParserError (IncompleteQuotation "{ \" Oh no \""))
+parseTokens :: String -> Either BError [Token]
 parseTokens = fmap (fmap parseToken) . splitPreserveTokens
 
 -- | Parse a single string into a 'Token'. This function attempts to match the string to different token types

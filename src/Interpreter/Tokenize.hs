@@ -1,7 +1,7 @@
 module Interpreter.Tokenize (splitPreserveTokens) where
 
 import Data.Maybe (fromMaybe, listToMaybe)
-import Interpreter.Error (ParserError(..))
+import Interpreter.Error (ParserError(..), BError(..))
 
 
 -- | Convert an input string to a list of strings by handling blocks and strings
@@ -18,15 +18,15 @@ import Interpreter.Error (ParserError(..))
 -- Right ["\" hello world \"","x"]
 --
 -- >>> splitPreserveTokens "{ 1 2"
--- Left (IncompleteQuotation "{ 1 2")
+-- Left (ParserError (IncompleteQuotation "{ 1 2"))
 --
 -- >>> splitPreserveTokens "[ 1 2 3"
--- Left (IncompleteList "[ 1 2 3")
+-- Left (ParserError (IncompleteList "[ 1 2 3"))
 --
 -- >>> splitPreserveTokens "\" unfinished string"
--- Left (IncompleteString "\" unfinished string")
+-- Left (ParserError (IncompleteString "\" unfinished string"))
 --
-splitPreserveTokens :: String -> Either ParserError [String]
+splitPreserveTokens :: String -> Either BError [String]
 splitPreserveTokens = fmap reverse . finalize . foldl collect ([], Nothing) . words
   where
     collect :: ([String], Maybe (String, [String])) -> String -> ([String], Maybe (String, [String]))
@@ -40,10 +40,10 @@ splitPreserveTokens = fmap reverse . finalize . foldl collect ([], Nothing) . wo
       | tok == end = (unwords (group ++ [tok]) : acc, Nothing)
       | otherwise  = (acc, Just (end, group ++ [tok]))
 
-    finalize :: ([String], Maybe (String, [String])) -> Either ParserError [String]
+    finalize :: ([String], Maybe (String, [String])) -> Either BError [String]
     finalize (acc, Nothing) = Right acc
     finalize (_, Just (end, group)) = case end of
-      "}"  -> Left (IncompleteQuotation $ unwords group)
-      "]"  -> Left (IncompleteList $ unwords group)
-      "\"" -> Left (IncompleteString $ unwords group)
-      _    -> Left (UnexpectedEnd (fromMaybe '?' (listToMaybe end)))
+      "}"  -> Left . ParserError $ IncompleteQuotation (unwords group)  
+      "]"  -> Left . ParserError $  IncompleteList (unwords group)  
+      "\"" -> Left . ParserError $  IncompleteString (unwords group)
+      _    -> Left . ParserError $  UnexpectedEnd (fromMaybe '?' (listToMaybe end))
