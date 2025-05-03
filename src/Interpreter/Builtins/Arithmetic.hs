@@ -1,7 +1,67 @@
-module Interpreter.Builtins.Arithmetic where
+module Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul) where
 
 import Interpreter.Error( ProgramError(ExpectedBoolOrNumber, DivisionByZero), BError (ProgramError) )
 import Interpreter.Types    
+
+-- | Safely adds two values.
+-- Handles both integer and floating-point addition. 
+-- Returns an error if the types are not compatible.
+-- 
+-- == Examples:
+-- 
+-- >>> safeAdd (VInt 2) (VInt 3)
+-- Right 5
+-- 
+-- >>> safeAdd (VFloat 2.0) (VFloat 3.0)
+-- Right 5.0
+-- 
+-- >>> safeAdd (VInt 2) (VFloat 3.0)
+-- Right 5.0
+-- 
+-- >>> safeAdd (VBool True) (VInt 3)
+-- Right 4
+safeAdd :: Value -> Value -> Either BError Value
+safeAdd = liftNumeric (+)(+)
+
+-- | Safely subtracts two values.
+-- Handles both integer and floating-point subtraction.
+-- Returns an error if the types are not compatible.
+-- 
+-- == Examples:
+-- 
+-- >>> safeSub (VInt 5) (VInt 3)
+-- Right 2
+-- 
+-- >>> safeSub (VFloat 5.5) (VFloat 3.0)
+-- Right 2.5
+-- 
+-- >>> safeSub (VInt 10) (VFloat 3.5)
+-- Right 6.5
+-- 
+-- >>> safeSub (VString "hello") (VInt 1)
+-- Left (ProgramError ExpectedBoolOrNumber)
+safeSub :: Value -> Value -> Either BError Value
+safeSub = liftNumeric (-)(-)
+
+-- | Safely multiplies two values.
+-- Handles both integer and floating-point multiplication.
+-- Returns an error if the types are not compatible.
+-- 
+-- == Examples:
+-- 
+-- >>> safeMul (VInt 4) (VInt 5)
+-- Right 20
+-- 
+-- >>> safeMul (VFloat 2.0) (VFloat 3.0)
+-- Right 6.0
+-- 
+-- >>> safeMul (VInt 2) (VFloat 3.0)
+-- Right 6.0
+-- 
+-- >>> safeMul (VBool True) (VInt 3)
+-- Right 3
+safeMul :: Value -> Value -> Either BError Value
+safeMul = liftNumeric (*)(*)
 
 -- | Converts a `Value` to a numeric type (`Int` or `Double`).
 -- Returns `Nothing` if the value cannot be converted.
