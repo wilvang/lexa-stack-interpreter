@@ -1,7 +1,8 @@
-module Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul) where
+module Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv) where
 
+import Interpreter.Types
 import Interpreter.Error( ProgramError(ExpectedBoolOrNumber, DivisionByZero), BError (ProgramError) )
-import Interpreter.Types    
+
 
 -- | Safely adds two values.
 -- Handles both integer and floating-point addition. 
@@ -62,6 +63,58 @@ safeSub = liftNumeric (-)(-)
 -- Right 3
 safeMul :: Value -> Value -> Either BError Value
 safeMul = liftNumeric (*)(*)
+
+-- | Safely performs division on two values.
+-- Handles division by zero and type mismatch errors.
+-- 
+-- == Examples:
+-- 
+-- >>> safeDiv (VInt 10) (VInt 2)
+-- Right 5.0
+-- 
+-- >>> safeDiv (VFloat 10.0) (VFloat 2.0)
+-- Right 5.0
+-- 
+-- >>> safeDiv (VInt 10) (VInt 0)
+-- Left (ProgramError DivisionByZero)
+-- 
+-- >>> safeDiv (VBool True) (VInt 2)
+-- Right 0.5
+-- 
+-- >>> safeDiv (VInt 10) (VString "hello")
+-- Left (ProgramError ExpectedBoolOrNumber)
+safeDiv :: Value -> Value -> Either BError Value
+safeDiv a b = case (toFloat a, toFloat b) of
+    (Nothing, _) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
+    (_, Nothing) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
+    (_, Just 0.0) -> Left . ProgramError $ DivisionByZero  -- Division by zero
+    (Just x, Just y) -> Right . VFloat $ x / y  -- Safe float division
+
+-- | Safely performs integer division on two values.
+-- Handles division by zero and type mismatch errors.
+-- 
+-- == Examples:
+-- 
+-- >>> safeIntDiv (VInt 10) (VInt 2)
+-- Right 5
+-- 
+-- >>> safeIntDiv (VFloat 10.0) (VFloat 2.0)
+-- Right 5
+-- 
+-- >>> safeIntDiv (VInt 10) (VInt 0)
+-- Left (ProgramError DivisionByZero)
+-- 
+-- >>> safeIntDiv (VBool True) (VInt 2)
+-- Right 0
+-- 
+-- >>> safeIntDiv (VInt 10) (VString "hello")
+-- Left (ProgramError ExpectedBoolOrNumber)
+safeIntDiv :: Value -> Value -> Either BError Value
+safeIntDiv a b = case (toInt a, toInt b) of
+    (Nothing, _) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
+    (_, Nothing) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
+    (_, Just 0) -> Left . ProgramError $ DivisionByZero  -- Division by zero
+    (Just x, Just y) -> Right . VInt $ x `div` y -- Safe integer division
 
 -- | Converts a 'Value' to an 'Int'.
 -- 
