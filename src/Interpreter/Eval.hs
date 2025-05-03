@@ -12,6 +12,32 @@ type Stack = [Value]
 -- | Interprets a program given as a string.
 -- Returns either a ParserError if tokenization fails,
 -- or the final Stack after evaluating all tokens.
+--
+-- == Examples:
+--
+-- -- >>> interpret "1 2 +"
+-- Right [3]
+--
+-- >>> interpret "3.0 1.5 -"
+-- Right [1.5]
+--
+-- >>> interpret "10 2 /"
+-- Right [5.0]
+--
+-- >>> interpret "10 0 /"
+-- Left (ProgramError DivisionByZero)
+--
+-- >>> interpret "1 2 unknown_val"
+-- Right [unknown_val,2,1]
+--
+-- >>> interpret "{ 1 2"
+-- Left (ParserError (IncompleteQuotation "{ 1 2"))
+--
+-- >>> interpret "}"
+-- Right [}]
+--
+-- >>> interpret "true false +"
+-- Left (ProgramError ExpectedBoolOrNumber)
 interpret :: String -> Either BError Stack
 interpret input = case parseTokens input of
       Left err     -> Left err
@@ -26,6 +52,29 @@ interpret input = case parseTokens input of
         Right newStack -> process tokens newStack  -- Continue processing with the new stack
 
 -- | The 'step' function is responsible for processing a single token and updating the stack.
+--
+-- == Examples:
+--
+-- -- >>> step (TokVal (VInt 5)) []
+-- Right [5]
+--
+-- >>> step (TokVal (VBool True)) [VInt 1]
+-- Right [True,1]
+--
+-- >>> step (TokOp OpAdd) [VInt 2, VInt 3]
+-- Right [5]
+--
+-- >>> step (TokOp OpSub) [VInt 2, VInt 3]
+-- Right [1]
+--
+-- >>> step (TokOp OpMul) [VInt 2, VInt 3]
+-- Right [6]
+--
+-- >>> step (TokOp OpDiv) [VInt 10, VInt 2]
+-- Right [0.2]
+--
+-- >>> step (TokOp OpAdd) [VInt 2]  -- not enough operands
+-- Right [2]
 step :: Token -> Stack -> Either BError Stack
 step (TokVal val) = Right . (val :) -- Push the value onto the stack
 step (TokOp op)  = case op of
