@@ -18,13 +18,13 @@ import Interpreter.Error (ParserError(..))
 -- Right ["\" hello world \"","x"]
 --
 -- >>> splitPreserveTokens "{ 1 2"
--- Left (IncompleteQuotation ["{","1","2"])
+-- Left (IncompleteQuotation "{ 1 2")
 --
 -- >>> splitPreserveTokens "[ 1 2 3"
--- Left (IncompleteList ["[","1","2","3"])
+-- Left (IncompleteList "[ 1 2 3")
 --
 -- >>> splitPreserveTokens "\" unfinished string"
--- Left (IncompleteString ["\"","unfinished","string"])
+-- Left (IncompleteString "\" unfinished string")
 --
 splitPreserveTokens :: String -> Either ParserError [String]
 splitPreserveTokens = fmap reverse . finalize . foldl collect ([], Nothing) . words
@@ -43,7 +43,7 @@ splitPreserveTokens = fmap reverse . finalize . foldl collect ([], Nothing) . wo
     finalize :: ([String], Maybe (String, [String])) -> Either ParserError [String]
     finalize (acc, Nothing) = Right acc
     finalize (_, Just (end, group)) = case end of
-      "}"  -> Left (IncompleteQuotation group)
-      "]"  -> Left (IncompleteList group)
-      "\"" -> Left (IncompleteString group)
+      "}"  -> Left (IncompleteQuotation $ unwords group)
+      "]"  -> Left (IncompleteList $ unwords group)
+      "\"" -> Left (IncompleteString $ unwords group)
       _    -> Left (UnexpectedEnd (fromMaybe '?' (listToMaybe end)))
