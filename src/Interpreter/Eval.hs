@@ -73,3 +73,41 @@ step (TokOp op)  = case op of
   -- Higher-order functions
   OpFoldl  -> applyFoldlOp   -- Apply a fold-left operation on a list
 -}
+
+-- | Applies a binary operation to the top two elements of the stack.
+-- This function takes an operator and a stack, applies the operator to the 
+-- top two elements of the stack, and returns a new stack with the result.
+-- If the operator results in an error, the function returns the error without modifying the stack.
+--
+-- It handles three cases:
+-- 1. If the stack is empty, it returns the stack unchanged.
+-- 2. If the stack contains only one element, it returns the stack unchanged.
+-- 3. If the stack contains two or more elements, it applies the operator to the top two elements
+--    and returns the result as the new top of the stack.
+--
+-- == Examples:
+--
+-- >>> applyBinaryOp safeAdd [VInt 1, VInt 2]
+-- Right [3]
+--
+-- >>> applyBinaryOp safeMul [VInt 3, VInt 4]
+-- Right [12]
+--
+-- >>> applyBinaryOp safeDiv [VFloat 2.0, VFloat 6.0]
+-- Right [3.0]
+--
+-- >>> applyBinaryOp safeSub [VInt 3, VInt 5]
+-- Right [2]
+--
+-- >>> applyBinaryOp safeAdd []
+-- Right []
+--
+-- >>> applyBinaryOp safeDiv [VFloat 0.0, VFloat 6.0]
+-- Left (ProgramError DivisionByZero)
+applyBinaryOp :: (Value -> Value -> Either BError Value) -> Stack -> Either BError Stack
+applyBinaryOp _ [] = Right []
+applyBinaryOp _ s@[_] = Right s
+applyBinaryOp op (x:y:rest) = 
+  case y `op` x of
+    Right z    -> Right (z : rest)
+    Left err   -> Left err
