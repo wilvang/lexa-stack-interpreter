@@ -63,6 +63,69 @@ safeSub = liftNumeric (-)(-)
 safeMul :: Value -> Value -> Either BError Value
 safeMul = liftNumeric (*)(*)
 
+-- | Converts a 'Value' to an 'Int'.
+-- 
+-- Handles:
+-- - 'VInt': returns the 'Int' directly.
+-- - 'VFloat': truncates the 'Float' to an 'Int' (drops the decimal part).
+-- - 'VBool': converts 'True' to 1 and 'False' to 0.
+-- 
+-- Returns 'Nothing' for any other type of 'Value'.
+-- 
+-- == Examples:
+-- 
+-- >>> toInt (VInt 5)
+-- Just 5
+-- 
+-- >>> toInt (VFloat 3.14)
+-- Just 3
+-- 
+-- >>> toInt (VBool True)
+-- Just 1
+-- 
+-- >>> toInt (VBool False)
+-- Just 0
+-- 
+-- >>> toInt (VString "hello")
+-- Nothing
+toInt :: Value -> Maybe Int
+toInt (VInt a) = Just a
+toInt (VFloat a) = Just $ truncate a
+toInt (VBool a) = Just $ if a then 1 else 0
+toInt _ = Nothing
+
+
+-- | Converts a 'Value' to a 'Double' (floating-point number).
+-- 
+-- Handles:
+-- - 'VInt': converts the 'Int' to a 'Double' using 'fromIntegral'.
+-- - 'VFloat': returns the 'Float' as a 'Double'.
+-- - 'VBool': converts 'True' to 1.0 and 'False' to 0.0.
+-- 
+-- Returns 'Nothing' for any other type of 'Value'.
+-- 
+-- == Examples:
+-- 
+-- >>> toFloat (VInt 5)
+-- Just 5.0
+-- 
+-- >>> toFloat (VFloat 3.14)
+-- Just 3.14
+-- 
+-- >>> toFloat (VBool True)
+-- Just 1.0
+-- 
+-- >>> toFloat (VBool False)
+-- Just 0.0
+-- 
+-- >>> toFloat (VString "hello")
+-- Nothing
+toFloat :: Value -> Maybe Double
+toFloat (VInt a) = Just $ fromIntegral a
+toFloat (VFloat a) = Just a
+toFloat (VBool a) = Just $ if a then 1 else 0
+toFloat _ = Nothing
+
 -- | Converts a `Value` to a numeric type (`Int` or `Double`).
 -- Returns `Nothing` if the value cannot be converted.
 -- 
