@@ -19,6 +19,7 @@ data ProgramError =
    | ExpectedQuotation
    | ExpectedList
    | ExpectedVariable
+   | NotComparable
    | DivisionByZero
    | ProgramFinishedWithMultipleValues
    | NumberConversionError
