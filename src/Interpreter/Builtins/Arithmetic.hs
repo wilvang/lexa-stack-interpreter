@@ -85,9 +85,9 @@ safeMul = liftNumeric (*)(*)
 -- Left (ProgramError ExpectedBoolOrNumber)
 safeDiv :: Value -> Value -> Either BError Value
 safeDiv a b = case (toFloat a, toFloat b) of
-    (Nothing, _) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
-    (_, Nothing) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
-    (_, Just 0.0) -> Left . ProgramError $ DivisionByZero  -- Division by zero
+    (Nothing, _)     -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
+    (_, Nothing)     -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
+    (_, Just 0.0)    -> Left . ProgramError $ DivisionByZero  -- Division by zero
     (Just x, Just y) -> Right . VFloat $ x / y  -- Safe float division
 
 -- | Safely performs integer division on two values.
@@ -111,9 +111,9 @@ safeDiv a b = case (toFloat a, toFloat b) of
 -- Left (ProgramError ExpectedBoolOrNumber)
 safeIntDiv :: Value -> Value -> Either BError Value
 safeIntDiv a b = case (toInt a, toInt b) of
-    (Nothing, _) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
-    (_, Nothing) -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
-    (_, Just 0) -> Left . ProgramError $ DivisionByZero  -- Division by zero
+    (Nothing, _)     -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'a'
+    (_, Nothing)     -> Left . ProgramError $ ExpectedBoolOrNumber  -- Non-numeric 'b'
+    (_, Just 0)      -> Left . ProgramError $ DivisionByZero  -- Division by zero
     (Just x, Just y) -> Right . VInt $ x `div` y -- Safe integer division
 
 -- | Converts a 'Value' to an 'Int'.
@@ -142,10 +142,10 @@ safeIntDiv a b = case (toInt a, toInt b) of
 -- >>> toInt (VString "hello")
 -- Nothing
 toInt :: Value -> Maybe Int
-toInt (VInt a) = Just a
+toInt (VInt a)   = Just a
 toInt (VFloat a) = Just $ truncate a
-toInt (VBool a) = Just $ if a then 1 else 0
-toInt _ = Nothing
+toInt (VBool a)  = Just $ if a then 1 else 0
+toInt _          = Nothing
 
 
 -- | Converts a 'Value' to a 'Double' (floating-point number).
@@ -174,10 +174,10 @@ toInt _ = Nothing
 -- >>> toFloat (VString "hello")
 -- Nothing
 toFloat :: Value -> Maybe Double
-toFloat (VInt a) = Just $ fromIntegral a
+toFloat (VInt a)   = Just $ fromIntegral a
 toFloat (VFloat a) = Just a
-toFloat (VBool a) = Just $ if a then 1 else 0
-toFloat _ = Nothing
+toFloat (VBool a)  = Just $ if a then 1 else 0
+toFloat _          = Nothing
 
 -- | Converts a `Value` to a numeric type (`Int` or `Double`).
 -- Returns `Nothing` if the value cannot be converted.
@@ -228,8 +228,8 @@ liftNumeric :: (Int -> Int -> Int) -> (Double -> Double -> Double)
             -> Value -> Value -> Either BError Value
 liftNumeric opInt opFloat a b =
   case (toNumeric a, toNumeric b) of
-    (Just (Left x), Just (Left y)) -> Right . VInt $ opInt x y
+    (Just (Left x), Just (Left y))   -> Right . VInt $ opInt x y
     (Just (Right x), Just (Right y)) -> Right . VFloat $ opFloat x y
-    (Just (Left x), Just (Right y)) -> Right . VFloat $ opFloat (fromIntegral x) y
-    (Just (Right x), Just (Left y)) -> Right . VFloat $ opFloat x (fromIntegral y)
-    _ -> Left . ProgramError $ ExpectedBoolOrNumber
+    (Just (Left x), Just (Right y))  -> Right . VFloat $ opFloat (fromIntegral x) y
+    (Just (Right x), Just (Left y))  -> Right . VFloat $ opFloat x (fromIntegral y)
+    _                                -> Left . ProgramError $ ExpectedBoolOrNumber
