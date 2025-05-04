@@ -7,7 +7,7 @@ import Control.Applicative ((<|>))
 import qualified Data.Map as M
 import Interpreter.Types
 import Interpreter.Tokenize (splitPreserveTokens)
-import Interpreter.Error (ParserError)
+import Interpreter.Error (BError)
 
 -- | Convert an input string into a list of tokens by splitting it on whitespace.
 -- The function uses 'splitPreserveTokens' to split the input, and then applies 'parseToken' to each string.
@@ -19,9 +19,9 @@ import Interpreter.Error (ParserError)
 -- >>> parseTokens "\"hello\" True [ 1 2 ]"
 -- Right ["hello",True,[ 1 2 ]]
 --
--- >>> parseTokens " 1 2 [ 2 3 4 ] { \" Oh no \""
--- Left (IncompleteQuotation ["{","\"","Oh","no","\""])
-parseTokens :: String -> Either ParserError [Token]
+-- >>> parseTokens "1 2 [ 2 3 4 ] { \" Oh no \""
+-- Left (ParserError (IncompleteQuotation "{ \" Oh no \""))
+parseTokens :: String -> Either BError [Token]
 parseTokens = fmap (fmap parseToken) . splitPreserveTokens
 
 -- | Parse a single string into a 'Token'. This function attempts to match the string to different token types
@@ -86,6 +86,23 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
       , ("loop", OpLoop)
       , (":=", OpAssign)
       , ("fun", OpFun)
+      , ("dup", OpDup)
+      , ("swap", OpSwap)
+      , ("pop", OpPop)
+      , ("cons", OpCons)
+      , ("append", OpAppend)
+      , ("head", OpHead)
+      , ("tail", OpTail)
+      , ("empty", OpEmpty)
+      , ("length", OpLength)
+      , ("each", OpEach)
+      , ("map", OpMap)
+      , ("print", OpPrint)
+      , ("read", OpRead)
+      , ("parseInt", OpParseInt)
+      , ("parseFloat", OpParseFloat)
+      , ("words", OpWords)
+      , ("foldl", OpFoldl)
       ]
 
 -- | Try to parse an integer from a string.
@@ -97,7 +114,7 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
 -- >>> maybeParseInt "abc"
 -- Nothing
 maybeParseInt :: String -> Maybe Token
-maybeParseInt s = (TokVal . VInt) <$> (readMaybe s :: Maybe Int)
+maybeParseInt s = TokVal . VInt <$> (readMaybe s :: Maybe Int)
 
 -- | Try to parse a floating point number from a string.
 -- Returns a token wrapped in 'VFloat' if successful.
@@ -111,7 +128,7 @@ maybeParseInt s = (TokVal . VInt) <$> (readMaybe s :: Maybe Int)
 -- >>> maybeParseFloat "nope"
 -- Nothing
 maybeParseFloat :: String -> Maybe Token
-maybeParseFloat s = (TokVal . VFloat) <$> (readMaybe s :: Maybe Double)
+maybeParseFloat s = TokVal . VFloat <$> (readMaybe s :: Maybe Double)
 
 -- | Try to parse a boolean value from a string.
 -- Accepts only "True" or "False" (case-sensitive).
@@ -125,8 +142,8 @@ maybeParseFloat s = (TokVal . VFloat) <$> (readMaybe s :: Maybe Double)
 -- >>> maybeParseBool "true"
 -- Nothing
 maybeParseBool :: String -> Maybe Token
-maybeParseBool "True"  = Just (TokVal (VBool True))
-maybeParseBool "False" = Just (TokVal (VBool False))
+maybeParseBool "True"  = Just . TokVal . VBool $ True
+maybeParseBool "False" = Just . TokVal . VBool $ False
 maybeParseBool _       = Nothing
 
 
@@ -154,7 +171,7 @@ maybeParseBool _       = Nothing
 -- Nothing
 maybeParseContext :: String -> Maybe Token
 maybeParseContext s
-  | isWrapped ('"', '"') s = (Just . TokVal . VString . unwrap) s
+  | isWrapped ('"', '"') s = Just . TokVal . VString . unwrap $ s
   | isWrapped ('[', ']') s = parseListContext s
   | isWrapped ('{', '}') s = parseQuotationContext s
   | otherwise              = Nothing
@@ -237,7 +254,7 @@ parseQuotationContext =
 -- Nothing
 parseListContext :: String -> Maybe Token
 parseListContext =
-  fmap (TokVal . VList) . traverse extractValue . map parseToken . words . unwrap
+  fmap (TokVal . VList) . traverse (extractValue . parseToken) . words . unwrap
   where
     extractValue (TokVal v) = Just v
     extractValue _          = Nothing

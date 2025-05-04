@@ -17,6 +17,7 @@ dist/
 *.stack-work/ # Stack's internal build files
 .idea/ # JetBrains IDEs (e.g., IntelliJ, PhpStorm)
 .vscode/ # VSCode settings
+.vscode
 
 # OS-specific files
 .DS_Store # macOS
