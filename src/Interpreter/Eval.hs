@@ -97,13 +97,20 @@ step (TokOp op)  = case op of
   -- Logical operations
   OpAnd    -> applyLogicalOp (&&)
   OpOr     -> applyLogicalOp (||)
-  OpNot    -> applyNotOp
+  OpNot    -> applyUnaryOp safeNot
+  
+  -- Stack Manipulation
+  OpDup    -> applyDupOp
+  OpSwap   -> applySwapOp
+  OpPop    -> applyPopOp
 
   -- Control flow or function application
   OpExec   -> applyExecOp    -- Execute the quotation block
   OpIf     -> applyIfOp      -- Handle the "if" operation
   OpTimes  -> applyTimesOp   -- Handle the "times" operation
   OpLoop   -> applyLoopOp    -- Handle the "loop" operation
+  OpAssign -> applyAssignOp
+  OpFun    -> applyFunOp
 
   -- List operations
   OpCons   -> applyConsOp    -- Prepend an item to a list
@@ -178,5 +185,14 @@ applyBinaryOp _ [] = Right []
 applyBinaryOp _ s@[_] = Right s
 applyBinaryOp op (x:y:rest) = 
   case y `op` x of
-    Right z    -> Right (z : rest)
+    Right val  -> Right (val : rest)
     Left err   -> Left err
+
+
+applyUnaryOp :: (Value -> Either BError Value) -> Stack -> Either BError Stack
+applyUnaryOp _ [] = Right []
+applyUnaryOp op (x:rest) = 
+  case op x of
+    Right val  -> Right (val : rest)
+    Left err   -> Left err
+ 
