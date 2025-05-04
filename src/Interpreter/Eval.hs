@@ -188,7 +188,14 @@ applyBinaryOp op (x:y:rest) =
     Right val  -> Right (val : rest)
     Left err   -> Left err
 
-
+-- | Applies a unary operation to the top element of the stack.
+-- This function takes a unary operator and a stack, applies the operator to the 
+-- top element of the stack, and returns either a new stack with the result or an error.
+--
+-- It handles two cases:
+-- 1. If the stack is empty, it returns the empty stack wrapped in 'Right', unchanged.
+-- 2. If the stack contains at least one element, it applies the operator to the top element.
+--  
 applyUnaryOp :: (Value -> Either BError Value) -> Stack -> Either BError Stack
 applyUnaryOp _ [] = Right []
 applyUnaryOp op (x:rest) = 
