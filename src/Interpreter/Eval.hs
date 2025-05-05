@@ -2,6 +2,7 @@
 module Interpreter.Eval (interpret) where
 
 import qualified Data.Map as M
+import Control.Monad ( (>=>) )
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
@@ -73,14 +74,14 @@ step (TokOp op) = case op of
   OpAnd    -> applyBinaryOp safeAnd
   OpOr     -> applyBinaryOp safeOr
   OpNot    -> applyUnaryOp safeNot
-  _        -> unknownOp
 
-{-
   -- Stack Manipulation
   OpDup    -> applyDupOp
   OpSwap   -> applySwapOp
-  OpPop    -> applyPopOp
+  OpPop    -> popValue . nextToken
+  _        -> unknownOp
 
+{-
   -- Control flow or function application
   OpExec   -> applyExecOp    -- Execute the quotation block
   OpIf     -> applyIfOp      -- Handle the "if" operation
@@ -161,9 +162,12 @@ applyBinaryOp :: (Value -> Value -> Either BError Value) -> State -> Either BErr
 applyBinaryOp _ st@State{ stack = [] } = Right $ nextToken st
 applyBinaryOp _ st@State{ stack = [_] } = Right $ nextToken st
 applyBinaryOp op st@State{ stack = x:y:_ } = 
-  case y `op` x of
-    Right val  -> Right . nextToken $ pushValue val (popValue (popValue st))
-    Left err   -> Left err
+  y `op` x >>= \val ->  -- Apply the binary operation to the top of the stack
+  popValue >=>          -- Pop the top value from the stack
+  popValue >=>          -- Pop the second value from the stack
+  pushValue val >=>     -- Push the result back onto the stack
+  return . nextToken
+  $ st
 
 -- | Applies a unary operation to the top element of the stack.
 -- This function takes a unary operator and a stack, applies the operator to the 
@@ -187,22 +191,24 @@ applyBinaryOp op st@State{ stack = x:y:_ } =
 applyUnaryOp :: (Value -> Either BError Value) -> State -> Either BError State
 applyUnaryOp _ st@State{ stack = [] } = Right $ nextToken st
 applyUnaryOp op st@State{ stack = x:_ } = 
-  case op x of
-    Right val  -> Right . nextToken $ pushValue val (popValue st)
-    Left err   -> Left err
+  op x >>= \val ->    -- Apply the unary operation to the top of the stack
+  popValue >=>        -- Pop the top value from the stack
+  pushValue val >=>   -- Push the result back onto the stack
+  return . nextToken
+  $ st
 
 -- | Pushes a value onto the top of the stack.
 --
 -- === Examples:
 --
 -- >>> pushValue (VInt 42) (initialStateWithStack [])
--- [42]
+-- Right [42]
 --
 -- >>> pushValue (VBool True) (initialStateWithStack [VInt 1])
--- [True,1]
+-- Right [True,1]
 --
-pushValue :: Value -> State -> State
-pushValue val st = st { stack = val : stack st }
+pushValue :: Value -> State -> Either BError State
+pushValue val st = Right st { stack = val : stack st }
 
 -- | Removes the top value from the stack.
 -- If the stack is empty, it is returned unchanged.
@@ -210,18 +216,19 @@ pushValue val st = st { stack = val : stack st }
 -- === Examples:
 --
 -- >>> popValue (initialStateWithStack [VInt 1, VInt 2])
--- [2]
+-- Right [2]
 --
 -- >>> popValue (initialStateWithStack [VInt 42])
--- []
+-- Right []
 --
 -- >>> popValue (initialStateWithStack [])
--- []
+-- Left (ProgramError StackEmpty)
 --
-popValue :: State -> State
-popValue st@State{ stack = [] } = st
-popValue st@State{ stack = [_] } = st { stack = [] }
-popValue st@State{ stack = _:rest } = st { stack = rest }
+popValue :: State -> Either BError State
+popValue st = case st of
+  State{ stack = [] } -> Left $ ProgramError StackEmpty
+  State{ stack = [_] } -> Right st { stack = [] }
+  State{ stack = _:rest } -> Right st { stack = rest }
 
 -- | Advances the program by removing the next token from the instruction list.
 -- If the program is empty, it is returned unchanged.
