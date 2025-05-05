@@ -76,8 +76,8 @@ step (TokOp op) = case op of
   OpNot    -> applyUnaryOp safeNot
 
   -- Stack Manipulation
-  OpDup    -> applyDupOp
-  OpSwap   -> applySwapOp
+  OpDup    -> dupValue . nextToken
+  OpSwap   -> swapValue . nextToken
   OpPop    -> popValue . nextToken
   _        -> unknownOp
 
@@ -229,6 +229,21 @@ popValue st = case st of
   State{ stack = [] } -> Left $ ProgramError StackEmpty
   State{ stack = [_] } -> Right st { stack = [] }
   State{ stack = _:rest } -> Right st { stack = rest }
+
+
+dupValue :: State -> Either BError State
+dupValue st = case st of
+  State{ stack = [] }     -> Left $ ProgramError StackEmpty
+  State{ stack = x:rest } -> Right st { stack = x:x:rest }
+
+
+swapValue :: State -> Either BError State
+swapValue st = case st of
+  State{ stack = [] }       -> Left $ ProgramError StackEmpty
+  State{ stack = [_] }      -> Left $ ProgramError ExpectTwoValues
+  State{ stack = x:y:rest } -> Right st { stack = y:x:rest }
+
+
 
 -- | Advances the program by removing the next token from the instruction list.
 -- If the program is empty, it is returned unchanged.
