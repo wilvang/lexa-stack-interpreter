@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 module Interpreter.State (State(..), initialStateWithDict, initialStateWithStack) where
 
 import qualified Data.Map as M
@@ -36,8 +37,8 @@ data State = State
 
 -- Custom Show instance for 'state', for printing the stack.
 instance Show State where
-    show (State stk _ _ _) = show stk
-
+    show :: State -> String
+    show (State stk tokens  _ _) = "State{" ++ show stk ++ ", " ++ show tokens ++ "}"
 
 -- | Creates an initial interpreter state with a given dictionary.
 -- This function initializes the interpreter state by setting the provided
@@ -72,10 +73,10 @@ initialStateWithDict dict tokens = State
 -- 3. An empty dictionary.
 -- 4. An empty print buffer.
 --
-initialStateWithStack :: [Value] -> State
-initialStateWithStack stk = State
+initialStateWithStack :: [Value] -> [Token] -> State
+initialStateWithStack stk tokens = State
     { stack = stk
-    , program = []
+    , program = tokens
     , dictionary = M.empty
     , printBuffer = []
     }
