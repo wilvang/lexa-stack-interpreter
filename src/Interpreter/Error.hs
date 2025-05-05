@@ -13,6 +13,7 @@ data ParserError
 data ProgramError =
      StackEmpty
    | UnknownSymbol
+   | ExpectTwoValues
    | ExpectedBool
    | ExpectedBoolOrNumber
    | ExpectedEnumerable
@@ -22,6 +23,7 @@ data ProgramError =
    | NotComparable
    | DivisionByZero
    | ProgramFinishedWithMultipleValues
+   | MissingArgument
    | NumberConversionError
    deriving (Eq, Show)
 
