@@ -1,86 +1,62 @@
 -- Stack machine evaluator
 module Interpreter.Eval (interpret) where
 
+import qualified Data.Map as M
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
+import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
+import Interpreter.State ( State(..), initialStateWithDict)
 import Interpreter.Parser
-
-type Stack = [Value]
 
 
 -- | Interprets a program given as a string.
 -- Returns either a ParserError if tokenization fails,
 -- or the final Stack after evaluating all tokens.
---
--- == Examples:
---
--- -- >>> interpret "1 2 +"
--- Right [3]
---
--- >>> interpret "3.0 1.5 -"
--- Right [1.5]
---
--- >>> interpret "10 2 /"
--- Right [5.0]
---
--- >>> interpret "10 0 /"
--- Left (ProgramError DivisionByZero)
---
--- >>> interpret "1 2 unknown_val"
--- Right [unknown_val,2,1]
---
--- >>> interpret "{ 1 2"
--- Left (ParserError (IncompleteQuotation "{ 1 2"))
---
--- >>> interpret "}"
--- Right [}]
---
--- >>> interpret "10 9 - 0.0 >"
--- Right [True]
--- >>> interpret "true false +"
--- Left (ProgramError ExpectedBoolOrNumber)
-interpret :: String -> Either BError Stack
-interpret input = case parseTokens input of
+interpret :: String -> M.Map String Value -> Either BError State
+interpret input dict = case parseTokens input of
       Left err     -> Left err
-      Right tokens -> process tokens []
+      Right tokens -> process (initialStateWithDict dict tokens)
   where
     -- | Recursively processes a list of tokens, updating the stack at each step.
-    process :: [Token] -> Stack -> Either BError Stack
-    process [] stack = Right stack  -- Base case: no more tokens, return the final stack
-    process (token : tokens) stack = 
-      case step token stack of
+    process :: State -> Either BError State
+    process st@State{ program = [] } = Right st  -- No more tokens to process
+    process st@State{ program = token:_ } =
+      case step token st of
         Left err       -> Left err  -- If step produces an error, propagate it
-        Right newStack -> process tokens newStack  -- Continue processing with the new stack
+        Right newState -> process newState  -- Continue processing with the new state
 
 -- | The 'step' function is responsible for processing a single token and updating the stack.
 --
 -- == Examples:
 --
--- -- >>> step (TokVal (VInt 5)) []
+-- $setup
+-- >>> import Interpreter.State ( initialStateWithStack )
+--
+-- -- >>> step (TokVal (VInt 5)) (initialStateWithStack [])
 -- Right [5]
 --
--- >>> step (TokVal (VBool True)) [VInt 1]
+-- >>> step (TokVal (VBool True)) (initialStateWithStack [VInt 1])
 -- Right [True,1]
 --
--- >>> step (TokOp OpAdd) [VInt 2, VInt 3]
+-- >>> step (TokOp OpAdd) (initialStateWithStack [VInt 2, VInt 3])
 -- Right [5]
 --
--- >>> step (TokOp OpSub) [VInt 2, VInt 3]
+-- >>> step (TokOp OpSub) (initialStateWithStack [VInt 2, VInt 3])
 -- Right [1]
 --
--- >>> step (TokOp OpMul) [VInt 2, VInt 3]
+-- >>> step (TokOp OpMul) (initialStateWithStack [VInt 2, VInt 3])
 -- Right [6]
 --
--- >>> step (TokOp OpDiv) [VInt 10, VInt 2]
+-- >>> step (TokOp OpDiv) (initialStateWithStack [VInt 10, VInt 2])
 -- Right [0.2]
 --
--- >>> step (TokOp OpAdd) [VInt 2]  -- not enough operands
+-- >>> step (TokOp OpAdd) (initialStateWithStack [VInt 2])  -- not enough operands
 -- Right [2]
-step :: Token -> Stack -> Either BError Stack
-step (TokVal val) = Right . (val :) -- Push the value onto the stack
-step (TokOp op)  = case op of
+step :: Token -> State -> Either BError State
+step (TokVal val) = Right . \st -> st { stack = val : stack st }
+step (TokOp op) = case op of
   -- Arithmetic operations (binary)
   OpAdd    -> applyBinaryOp safeAdd
   OpSub    -> applyBinaryOp safeSub 
@@ -92,13 +68,14 @@ step (TokOp op)  = case op of
   OpLT     -> applyBinaryOp safeLT 
   OpGT     -> applyBinaryOp safeGT 
   OpEQ     -> applyBinaryOp safeEQ
-  _        -> discardStack
-{-
+
   -- Logical operations
-  OpAnd    -> applyLogicalOp (&&)
-  OpOr     -> applyLogicalOp (||)
+  OpAnd    -> applyBinaryOp safeAnd
+  OpOr     -> applyBinaryOp safeOr
   OpNot    -> applyUnaryOp safeNot
-  
+  _        -> unknownOp
+
+{-
   -- Stack Manipulation
   OpDup    -> applyDupOp
   OpSwap   -> applySwapOp
@@ -133,22 +110,22 @@ step (TokOp op)  = case op of
   OpFoldl  -> applyFoldlOp   -- Apply a fold-left operation on a list
 -}
 
--- | Discards the stack and returns a `ProgramError`.
+-- | Discards the state and returns a `ProgramError`.
 -- This function is used when an invalid or unsupported operation is encountered.
 -- It consumes the current stack and returns a `Left` value with a specific error.
 --
 -- == Examples:
 --
--- >>> discardStack []
+-- >>> unknownOp (initialStateWithStack [])
 -- Left (ProgramError UnknownSymbol)
 --
--- >>> discardStack [VInt 5]
+-- >>> unknownOp (initialStateWithStack [VInt 5])
 -- Left (ProgramError UnknownSymbol)
 --
 -- This function is typically used when an unrecognized operation is encountered,
 -- and it explicitly discards the stack to avoid continuing with invalid state.
-discardStack :: Stack -> Either BError Stack
-discardStack _ = Left . ProgramError $ UnknownSymbol
+unknownOp :: State -> Either BError State
+unknownOp _ = Left . ProgramError $ UnknownSymbol
 
 -- | Applies a binary operation to the top two elements of the stack.
 -- This function takes an operator and a stack, applies the operator to the 
@@ -163,29 +140,29 @@ discardStack _ = Left . ProgramError $ UnknownSymbol
 --
 -- == Examples:
 --
--- >>> applyBinaryOp safeAdd [VInt 1, VInt 2]
+-- >>> applyBinaryOp safeAdd (initialStateWithStack [VInt 1, VInt 2])
 -- Right [3]
 --
--- >>> applyBinaryOp safeMul [VInt 3, VInt 4]
+-- >>> applyBinaryOp safeMul (initialStateWithStack [VInt 3, VInt 4])
 -- Right [12]
 --
--- >>> applyBinaryOp safeDiv [VFloat 2.0, VFloat 6.0]
+-- >>> applyBinaryOp safeDiv (initialStateWithStack [VFloat 2.0, VFloat 6.0])
 -- Right [3.0]
 --
--- >>> applyBinaryOp safeSub [VInt 3, VInt 5]
+-- >>> applyBinaryOp safeSub (initialStateWithStack [VInt 3, VInt 5])
 -- Right [2]
 --
--- >>> applyBinaryOp safeAdd []
+-- >>> applyBinaryOp safeAdd (initialStateWithStack [])
 -- Right []
 --
--- >>> applyBinaryOp safeDiv [VFloat 0.0, VFloat 6.0]
+-- >>> applyBinaryOp safeDiv (initialStateWithStack [VFloat 0.0, VFloat 6.0])
 -- Left (ProgramError DivisionByZero)
-applyBinaryOp :: (Value -> Value -> Either BError Value) -> Stack -> Either BError Stack
-applyBinaryOp _ [] = Right []
-applyBinaryOp _ s@[_] = Right s
-applyBinaryOp op (x:y:rest) = 
+applyBinaryOp :: (Value -> Value -> Either BError Value) -> State -> Either BError State
+applyBinaryOp _ st@State{ stack = [] } = Right $ nextToken st
+applyBinaryOp _ st@State{ stack = [_] } = Right $ nextToken st
+applyBinaryOp op st@State{ stack = x:y:_ } = 
   case y `op` x of
-    Right val  -> Right (val : rest)
+    Right val  -> Right . nextToken $ pushValue val (popValue (popValue st))
     Left err   -> Left err
 
 -- | Applies a unary operation to the top element of the stack.
@@ -196,10 +173,60 @@ applyBinaryOp op (x:y:rest) =
 -- 1. If the stack is empty, it returns the empty stack wrapped in 'Right', unchanged.
 -- 2. If the stack contains at least one element, it applies the operator to the top element.
 --  
-applyUnaryOp :: (Value -> Either BError Value) -> Stack -> Either BError Stack
-applyUnaryOp _ [] = Right []
-applyUnaryOp op (x:rest) = 
+-- == Examples:
+--
+-- >>> applyUnaryOp safeNot (initialStateWithStack [])
+-- Right []
+--
+-- >>> applyUnaryOp safeNot (initialStateWithStack [VBool True])
+-- Right [False]
+--
+-- >>> applyUnaryOp safeNot (initialStateWithStack [VInt 42])
+-- Right [-42]
+--
+applyUnaryOp :: (Value -> Either BError Value) -> State -> Either BError State
+applyUnaryOp _ st@State{ stack = [] } = Right $ nextToken st
+applyUnaryOp op st@State{ stack = x:_ } = 
   case op x of
-    Right val  -> Right (val : rest)
+    Right val  -> Right . nextToken $ pushValue val (popValue st)
     Left err   -> Left err
- 
+
+-- | Pushes a value onto the top of the stack.
+--
+-- === Examples:
+--
+-- >>> pushValue (VInt 42) (initialStateWithStack [])
+-- [42]
+--
+-- >>> pushValue (VBool True) (initialStateWithStack [VInt 1])
+-- [True,1]
+--
+pushValue :: Value -> State -> State
+pushValue val st = st { stack = val : stack st }
+
+-- | Removes the top value from the stack.
+-- If the stack is empty, it is returned unchanged.
+--
+-- === Examples:
+--
+-- >>> popValue (initialStateWithStack [VInt 1, VInt 2])
+-- [2]
+--
+-- >>> popValue (initialStateWithStack [VInt 42])
+-- []
+--
+-- >>> popValue (initialStateWithStack [])
+-- []
+--
+popValue :: State -> State
+popValue st@State{ stack = [] } = st
+popValue st@State{ stack = [_] } = st { stack = [] }
+popValue st@State{ stack = _:rest } = st { stack = rest }
+
+-- | Advances the program by removing the next token from the instruction list.
+-- If the program is empty, it is returned unchanged.
+--
+nextToken :: State -> State
+nextToken st@State{ program = [] } = st
+nextToken st@State{ program = [_] } = st { program = [] }
+nextToken st@State{ program = _:xs } = st { program = xs }
