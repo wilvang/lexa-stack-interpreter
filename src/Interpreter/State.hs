@@ -1,16 +1,10 @@
-module Interpreter.State (State, initialStateWithDict) where
+module Interpreter.State (State(..), initialStateWithDict, initialStateWithStack) where
 
 import qualified Data.Map as M
 import Interpreter.Types (Value(..), Token(..))
 
 -- | Dictionary maps symbols to values
 type Dictionary = M.Map String Value
-
--- | Stack stores values and results
-type Stack = [Value]
-
--- | Instructions contains tokens to be executed
-type Instruction = [Token]
 
 
 -- | The interpreter state represents the full runtime context of the interpreter.
@@ -20,25 +14,30 @@ type Instruction = [Token]
 --
 -- Fields:
 --
--- [@dictionary@] A mapping from variable names (as 'String') to their associated 'Value's. 
---                Used for storing user-defined variables, functions, and closures.
---
 -- [@stack@]      The evaluation stack, where intermediate values are pushed and popped 
 --                during execution. Most operations manipulate this stack.
 --
 -- [@program@]    The remaining instructions to be executed. This field acts as the 
 --                instruction pointer for the interpreter.
 --
+-- [@dictionary@] A mapping from variable names (as 'String') to their associated 'Value's. 
+--                Used for storing user-defined variables, functions, and closures
+--
 -- [@printBuffer@] A list of output messages accumulated during execution. These are 
 --                 collected for later use (e.g., displayed after pure evaluation).
 --
 data State = State
-    { 
-        dictionary :: Dictionary, 
-        stack :: Stack,
-        program :: Instruction,
+    {  
+        stack :: [Value],
+        program :: [Token],
+        dictionary :: Dictionary,
         printBuffer :: [String]
     }
+
+-- Custom Show instance for 'state', for printing the stack.
+instance Show State where
+    show (State stk _ _ _) = show stk
+
 
 -- | Creates an initial interpreter state with a given dictionary.
 -- This function initializes the interpreter state by setting the provided
@@ -54,10 +53,29 @@ data State = State
 -- 3. The provided dictionary.
 -- 4. An empty print buffer.
 --
-initialStateWithDict :: M.Map String Value -> State
-initialStateWithDict dict = State
-    { dictionary = dict
-    , stack = []
+initialStateWithDict :: M.Map String Value -> [Token] -> State
+initialStateWithDict dict tokens = State
+    { stack = []
+    , program = tokens
+    , dictionary = dict
+    , printBuffer = []
+    }
+
+-- | Creates an interpreter state for testing with a predefined data stack.
+--
+-- This is useful for unit tests or debugging where you want to set the stack
+-- manually without loading any program or dictionary entries.
+--
+-- The resulting state has:
+-- 1. The given stack.
+-- 2. An empty program.
+-- 3. An empty dictionary.
+-- 4. An empty print buffer.
+--
+initialStateWithStack :: [Value] -> State
+initialStateWithStack stk = State
+    { stack = stk
     , program = []
+    , dictionary = M.empty
     , printBuffer = []
     }
