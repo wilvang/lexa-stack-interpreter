@@ -292,8 +292,8 @@ applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 -- Left (ProgramError ExpectedQuotation)
 --
 applyTimesOp :: State -> Either BError State
-applyTimesOp st@State{ stack = x:_, program = op : TokVal q : rest } = 
-  case lookupValues st [x, q] of
+applyTimesOp st@State{ stack = num : _, program = times : TokVal block : rest } = 
+  case lookupValues st [num, block] of
     [VInt n, VQuotation quote] -> popValue st { program = op : concat (replicate n quote) ++ rest }
     [VInt _, _]              -> Left $ ProgramError ExpectedQuotation
     _                        -> Left $ ProgramError ExpectedEnumerable
@@ -394,7 +394,7 @@ assignFunc = assign extractQuotation ExpectedQuotation
 -- Left (ProgramError ExpectedQuotation)
 --
 execValue :: State -> Either BError State
-execValue st@State{ stack = VQuotation quote : _, program = op : rest } = 
+execValue st@State{ stack = VQuotation quote : _, program = exec : rest } = 
   popValue st { program = op : quote ++ rest }
 execValue State{ stack = _ } = Left $ ProgramError ExpectedQuotation
 
