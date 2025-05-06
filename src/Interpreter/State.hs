@@ -1,12 +1,12 @@
 {-# LANGUAGE InstanceSigs #-}
-module Interpreter.State (State(..), initialStateWithDict, initialStateWithStack) where
+module Interpreter.State (State(..), lookupValues, initialStateWithDict, initialStateWithStack) where
 
 import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
 import Interpreter.Types (Value(..), Token(..))
 
 -- | Dictionary maps symbols to values
 type Dictionary = M.Map String Value
-
 
 -- | The interpreter state represents the full runtime context of the interpreter.
 -- It tracks the program's progress, stores intermediate computation results,
@@ -80,3 +80,40 @@ initialStateWithStack stk tokens = State
     , dictionary = M.empty
     , printBuffer = []
     }
+
+-- | Looks up values in the state's dictionary if they are symbols.
+--
+-- Each value in the input list is looked up in the state's dictionary:
+-- if it is a 'VSymbol' and bound in the dictionary, its value is returned;
+-- otherwise, the original value is returned unchanged.
+--
+-- This function is typically used to resolve a list of possibly symbolic values
+-- before evaluation or pattern matching.
+--
+-- == Examples:
+--
+-- >>> let st = initialStateWithDict (M.fromList [("x", VInt 42)]) []
+-- >>> lookupValues st [VSymbol "x", VInt 1]
+-- [42,1]
+--
+lookupValues :: State -> [Value] -> [Value]
+lookupValues st = fmap (\key -> fromMaybe key (lookupDict st key))
+
+-- | Attempts to look up a symbol in the state's dictionary.
+--
+-- If the provided value is a 'VSymbol', it tries to retrieve its associated
+-- value from the state's dictionary. Returns 'Nothing' if the symbol is
+-- unbound or the value is not a symbol.
+--
+-- == Examples:
+--
+-- >>> let st = initialStateWithDict (M.fromList [("y", VInt 10)]) []
+-- >>> lookupDict st (VSymbol "y")
+-- Just 10
+--
+-- >>> lookupDict st (VInt 1)
+-- Nothing
+--
+lookupDict :: State -> Value -> Maybe Value
+lookupDict st (VSymbol var) = Just =<< M.lookup var (dictionary st)
+lookupDict _ _ = Nothing  
