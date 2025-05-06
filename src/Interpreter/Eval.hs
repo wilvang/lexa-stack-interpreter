@@ -221,24 +221,19 @@ applyUnaryOp op st@State{ stack = x:_ } =
 -- Left (ProgramError ExpectedQuotation)
 --
 -- >>> applyIfOp (initialStateWithStack [] [])
--- Left (ProgramError StackEmpty)
+-- Left (ProgramError ExpectedBool)
 --
 -- >>> applyIfOp (initialStateWithStack [VBool True] [TokVal (VQuotation [])])
--- Left (ProgramError ExpectedVariable)
+-- Left (ProgramError ExpectedQuotation)
 --
 applyIfOp :: State -> Either BError State
-applyIfOp State{ stack = [], program = _ } = Left $ ProgramError StackEmpty
-applyIfOp State{ stack = _, program = [] } = Left $ ProgramError ExpectedVariable
-applyIfOp State{ stack = _, program = [_] } = Left $ ProgramError ExpectedVariable
-applyIfOp st = case stack st of
-  (VBool cond : rest) -> case program st of
-    (_ : TokVal(VQuotation q1) : TokVal(VQuotation q2) : _) ->
-      execValue . nextToken $ nextToken st { stack = chosen : rest }
-      where
-        chosen = if cond then VQuotation q1 else VQuotation q2
-    _ -> Left $ ProgramError ExpectedQuotation
-  _ -> Left $ ProgramError ExpectedBool
-  
+applyIfOp st@State{ stack = VBool cond : rest, 
+program = _ : TokVal (VQuotation q1) : TokVal (VQuotation q2) : _ } =
+  execValue . nextToken $ nextToken st { stack = chosen : rest }
+  where
+    chosen = if cond then VQuotation q1 else VQuotation q2
+applyIfOp State{ stack = VBool _ : _ } = Left $ ProgramError ExpectedQuotation
+applyIfOp _ = Left $ ProgramError ExpectedBool
 
 -- | Evaluates a `times` operation by executing a quotation `n` times.
 --
