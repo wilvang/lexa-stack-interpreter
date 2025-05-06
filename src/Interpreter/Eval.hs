@@ -83,14 +83,13 @@ step (TokOp op) = case op of
   -- Control flow or function application
   OpExec   -> execValue    -- Execute the quotation block
   OpIf     -> applyIfOp      -- Handle the "if" operation
+  OpTimes  -> applyTimesOp   -- Handle the "times" operation
   _        -> unknownOp
-{-
-  OpTimes  -> applyUnaryOp   -- Handle the "times" operation
+
+  {-
   OpLoop   -> applyNon    -- Handle the "loop" operation
   OpAssign -> applyBinaryOp
   OpFun    -> applyBinaryOp
-  _        -> unknownOp
-
 
   -- List operations
   OpCons   -> applyConsOp    -- Prepend an item to a list
@@ -202,7 +201,6 @@ applyUnaryOp op st@State{ stack = x:_ } =
   return . nextToken
   $ st
 
-
 -- | Evaluates an `if` operation by executing one of two quotations based on a boolean condition.
 --
 -- The top of the stack must be a 'VBool', and the next two program tokens must be quotations.
@@ -226,11 +224,12 @@ applyUnaryOp op st@State{ stack = x:_ } =
 -- Left (ProgramError StackEmpty)
 --
 -- >>> applyIfOp (initialStateWithStack [VBool True] [TokVal (VQuotation [])])
--- Left (ProgramError MissingArgument)
+-- Left (ProgramError ExpectedVariable)
+--
 applyIfOp :: State -> Either BError State
 applyIfOp State{ stack = [], program = _ } = Left $ ProgramError StackEmpty
-applyIfOp State{ stack = _, program = [] } = Left $ ProgramError MissingArgument
-applyIfOp State{ stack = _, program = [_] } = Left $ ProgramError MissingArgument
+applyIfOp State{ stack = _, program = [] } = Left $ ProgramError ExpectedVariable
+applyIfOp State{ stack = _, program = [_] } = Left $ ProgramError ExpectedVariable
 applyIfOp st = case stack st of
   (VBool cond : rest) -> case program st of
     (_ : TokVal(VQuotation q1) : TokVal(VQuotation q2) : _) ->
@@ -240,6 +239,40 @@ applyIfOp st = case stack st of
     _ -> Left $ ProgramError ExpectedQuotation
   _ -> Left $ ProgramError ExpectedBool
   
+
+-- | Evaluates a `times` operation by executing a quotation `n` times.
+--
+-- The top of the stack must be a 'VInt', and the next token in the program must be a quotation.
+-- The quotation is duplicated 'n' times (flattened) and prepended to the remaining program for execution.
+--
+-- == Examples:
+--
+-- >>> applyTimesOp (initialStateWithStack [VInt 3] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 1)])])
+-- Right State{[], [1,1,1]}
+--
+-- >>> applyTimesOp (initialStateWithStack [VInt 0] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 42)])])
+-- Right State{[], []}
+--
+-- >>> applyTimesOp (initialStateWithStack [VBool True] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 1)])])
+-- Left (ProgramError ExpectedEnumerable)
+--
+-- >>> applyTimesOp (initialStateWithStack [VInt 2] [TokOp OpTimes, TokVal (VInt 1)])
+-- Left (ProgramError ExpectedQuotation)
+--
+-- >>> applyTimesOp (initialStateWithStack [] [])
+-- Left (ProgramError StackEmpty)
+--
+-- >>> applyTimesOp (initialStateWithStack [VInt 2] [])
+-- Left (ProgramError ExpectedQuotation)
+--
+applyTimesOp :: State -> Either BError State
+applyTimesOp State{ stack = [] } = Left $ ProgramError StackEmpty
+applyTimesOp st@State{ stack = x:_, program = _ : TokVal(VQuotation q1) : rest } = 
+  case x of
+    (VInt n)   -> popValue st { program = concat (replicate n q1) ++ rest }
+    _          -> Left $ ProgramError ExpectedEnumerable
+applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
+
 -- | Executes a quotation at the top of the stack.
 --
 -- This function checks if the top value on the stack is a 'VQuotation',
@@ -339,7 +372,7 @@ dupValue st = case st of
 -- Right State{["hi",False], []}
 --
 -- >>> swapValue (initialStateWithStack [VInt 1] [])
--- Left (ProgramError ExpectTwoValues)
+-- Left (ProgramError ExpectedVariable)
 --
 -- >>> swapValue (initialStateWithStack [] [])
 -- Left (ProgramError StackEmpty)
@@ -347,7 +380,7 @@ dupValue st = case st of
 swapValue :: State -> Either BError State
 swapValue st = case st of
   State{ stack = [] }       -> Left $ ProgramError StackEmpty
-  State{ stack = [_] }      -> Left $ ProgramError ExpectTwoValues
+  State{ stack = [_] }      -> Left $ ProgramError ExpectedVariable
   State{ stack = x:y:rest } -> Right st { stack = y:x:rest }
 
 -- | Advances the program by removing the next token from the instruction list.
