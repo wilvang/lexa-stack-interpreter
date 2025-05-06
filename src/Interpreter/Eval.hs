@@ -117,8 +117,8 @@ step (TokOp op) = case op of
   OpIf     -> applyIfOp     -- Handle the "if" operation
   OpTimes  -> applyTimesOp  -- Handle the "times" operation
   --OpLoop   -> applyNon      -- Handle the "loop" operation
-  --OpAssign -> assignValue
-  --OpFun    -> assignFunc
+  OpAssign -> assignValue
+  OpFun    -> assignFunc
   _        -> unknownOp
 
 {-
@@ -299,6 +299,70 @@ applyTimesOp st@State{ stack = x:_, program = op : TokVal q : rest } =
     _                        -> Left $ ProgramError ExpectedEnumerable
 applyTimesOp State{ stack = [] }  = Left $ ProgramError StackEmpty
 applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
+
+-- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
+--
+-- The top of the stack must be a 'VSymbol', and the next token in the program must be a value.
+-- The symbol is associated with the value in the dictionary.
+--
+assign :: (Value -> Maybe Value) -> ProgramError -> State -> Either BError State
+assign extract expectedError st@State{ stack = VSymbol x:_, program = _ : TokVal val : _ } =
+  maybe (Left $ ProgramError expectedError) 
+        (popValue . nextToken . updateDictionary x) 
+        (extract val)
+  where
+    updateDictionary key var = st { dictionary = M.insert key var (dictionary st) }
+assign _ _ State{ stack = _ } = Left $ ProgramError ExpectedSymbol
+
+-- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
+--
+-- The top of the stack must be a 'VSymbol', and the next token in the program must be a value.
+-- The symbol is associated with the value in the dictionary.
+--
+-- == Examples:
+--
+-- >>> assignValue (initialStateWithStack [VSymbol "x"] [TokOp OpAssign, TokVal (VInt 42)])
+-- Right State{[], [42]}
+--
+-- >>> assignValue (initialStateWithStack [VSymbol "y"] [TokOp OpAssign, TokVal (VQuotation [TokVal (VInt 1)])])
+-- Right State{[], [{ 1 }]}
+--
+-- >>> assignValue (initialStateWithStack [VInt 42] [TokOp OpAssign, TokVal (VInt 100)])
+-- Left (ProgramError ExpectedSymbol)
+--
+-- >>> assignValue (initialStateWithStack [VSymbol "z"] [TokOp OpAssign, TokVal (VSymbol "b")])
+-- Left (ProgramError ExpectedVariable)
+--
+assignValue :: State -> Either BError State
+assignValue = assign extractValue ExpectedVariable
+  where
+    extractValue (VSymbol _) = Nothing
+    extractValue v = Just v
+
+-- | Assigns a function (quotation) to a symbol in the state dictionary. The first operation in the program must be `OpFun`.
+--
+-- The top of the stack must be a 'VSymbol', and the next token in the program must be a 'VQuotation'.
+-- The symbol is associated with the quotation in the dictionary.
+--
+-- == Examples:
+--
+-- >>> assignFunc (initialStateWithStack [VSymbol "func"] [TokOp OpFun, TokVal (VQuotation [TokVal (VInt 1)])])
+-- Right State{[], [{ 1 }]}
+--
+-- >>> assignFunc (initialStateWithStack [VSymbol "action"] [TokOp OpFun, TokVal (VInt 42)])
+-- Left (ProgramError ExpectedQuotation)
+--
+-- >>> assignFunc (initialStateWithStack [VBool True] [TokOp OpFun, TokVal (VQuotation [TokVal (VInt 100)])])
+-- Left (ProgramError ExpectedSymbol)
+--
+-- >>> assignFunc (initialStateWithStack [VSymbol "foo"] [TokOp OpFun, TokVal (VInt 2)])
+-- Left (ProgramError ExpectedQuotation)
+--
+assignFunc :: State -> Either BError State
+assignFunc = assign extractQuotation ExpectedQuotation
+  where
+    extractQuotation (VQuotation q) = Just (VQuotation q)
+    extractQuotation _ = Nothing
 
 -- | Executes a quotation at the top of the stack.
 --
