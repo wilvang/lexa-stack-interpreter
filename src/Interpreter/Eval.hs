@@ -8,13 +8,42 @@ import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
-import Interpreter.State ( State(..), initialStateWithDict)
+import Interpreter.State ( State(..), lookupValues, initialStateWithDict)
 import Interpreter.Parser
 
 
 -- | Interprets a program given as a string.
 -- Returns either a ParserError if tokenization fails,
 -- or the final Stack after evaluating all tokens.
+--
+-- == Examples:
+--
+-- -- >>> interpret "1 2 +" M.empty
+-- Right State{[3], []}
+--
+-- >>> interpret "3.0 1.5 -" M.empty
+-- Right State{[1.5], []}
+--
+-- >>> interpret "10 2 /" M.empty
+-- Right State{[5.0], []}
+--
+-- >>> interpret "1 2 unknown_val" M.empty
+-- Right State{[unknown_val,2,1], []}
+--
+-- >>> interpret "}" M.empty
+-- Right State{[}], []}
+--
+-- >>> interpret "10 9 - 0.0 >" M.empty
+-- Right State{[True], []}
+--
+-- >>> interpret "{ 1 2" M.empty
+-- Left (ParserError (IncompleteQuotation "{ 1 2"))
+--
+-- >>> interpret "10 0 /" M.empty
+-- Left (ProgramError DivisionByZero)
+-- >>> interpret "true false +" M.empty
+-- Left (ProgramError ExpectedBoolOrNumber)
+--
 interpret :: String -> M.Map String Value -> Either BError State
 interpret input dict = case parseTokens input of
       Left err     -> Left err
@@ -26,7 +55,7 @@ interpret input dict = case parseTokens input of
     process st@State{ program = token:_ } =
       case step token st of
         Left err       -> Left err  -- If step produces an error, propagate it
-        Right newState -> process newState  -- Continue processing with the new state
+        Right newState -> process $ nextToken newState  -- Continue processing with the new state
 
 -- | The 'step' function is responsible for processing a single token and updating the stack.
 --
@@ -56,7 +85,10 @@ interpret input dict = case parseTokens input of
 -- >>> step (TokOp OpAdd) (initialStateWithStack [VInt 2] [])  -- not enough operands
 -- Right State{[2], []}
 step :: Token -> State -> Either BError State
-step (TokVal val) = Right . \st -> st { stack = val : stack st }
+step (TokVal var@(VSymbol _)) = \st -> case lookupValues st [var] of
+  [val@(VQuotation _)] -> pushValue val st >>= execValue
+  _                    -> pushValue var st
+step (TokVal val) = pushValue val
 step (TokOp op) = case op of
   -- Arithmetic operations (binary)
   OpAdd    -> applyBinaryOp safeAdd
@@ -76,21 +108,20 @@ step (TokOp op) = case op of
   OpNot    -> applyUnaryOp safeNot
 
   -- Stack Manipulation
-  OpDup    -> dupValue . nextToken
-  OpSwap   -> swapValue . nextToken
-  OpPop    -> popValue . nextToken
+  OpDup    -> dupValue
+  OpSwap   -> swapValue
+  OpPop    -> popValue
 
   -- Control flow or function application
-  OpExec   -> execValue    -- Execute the quotation block
-  OpIf     -> applyIfOp      -- Handle the "if" operation
-  OpTimes  -> applyTimesOp   -- Handle the "times" operation
+  OpExec   -> execValue     -- Execute the quotation block
+  OpIf     -> applyIfOp     -- Handle the "if" operation
+  OpTimes  -> applyTimesOp  -- Handle the "times" operation
+  --OpLoop   -> applyNon      -- Handle the "loop" operation
+  --OpAssign -> assignValue
+  --OpFun    -> assignFunc
   _        -> unknownOp
 
-  {-
-  OpLoop   -> applyNon    -- Handle the "loop" operation
-  OpAssign -> applyBinaryOp
-  OpFun    -> applyBinaryOp
-
+{-
   -- List operations
   OpCons   -> applyConsOp    -- Prepend an item to a list
   OpAppend -> applyAppendOp  -- Append two lists
@@ -158,15 +189,14 @@ unknownOp _ = Left . ProgramError $ UnknownSymbol
 -- >>> applyBinaryOp safeDiv (initialStateWithStack [VFloat 0.0, VFloat 6.0] [])
 -- Left (ProgramError DivisionByZero)
 applyBinaryOp :: (Value -> Value -> Either BError Value) -> State -> Either BError State
-applyBinaryOp _ st@State{ stack = [] } = Right $ nextToken st
-applyBinaryOp _ st@State{ stack = [_] } = Right $ nextToken st
+applyBinaryOp _ st@State{ stack = [] } = Right st
+applyBinaryOp _ st@State{ stack = [_] } = Right st
 applyBinaryOp op st@State{ stack = x:y:_ } = 
-  y `op` x >>= \val ->  -- Apply the binary operation to the top of the stack
-  popValue >=>          -- Pop the top value from the stack
-  popValue >=>          -- Pop the second value from the stack
-  pushValue val >=>     -- Push the result back onto the stack
-  return . nextToken
-  $ st
+  case lookupValues st [x, y] of
+    [a, b] -> b `op` a >>= \val ->  -- Apply the binary operation to the top of the stack
+      popValue >=> popValue >=> pushValue val >=> return $ st
+    _      -> Left $ ProgramError ExpectedVariable
+    
 
 -- | Applies a unary operation to the top element of the stack.
 -- This function takes a unary operator and a stack, applies the operator to the 
@@ -193,13 +223,12 @@ applyBinaryOp op st@State{ stack = x:y:_ } =
 -- Left (ProgramError ExpectedBoolOrNumber)
 --
 applyUnaryOp :: (Value -> Either BError Value) -> State -> Either BError State
-applyUnaryOp _ st@State{ stack = [] } = Right $ nextToken st
+applyUnaryOp _ st@State{ stack = [] } = Right st
 applyUnaryOp op st@State{ stack = x:_ } = 
-  op x >>= \val ->    -- Apply the unary operation to the top of the stack
-  popValue >=>        -- Pop the top value from the stack
-  pushValue val >=>   -- Push the result back onto the stack
-  return . nextToken
-  $ st
+  case lookupValues st [x] of
+    [a] -> op a >>= \val ->
+      popValue >=> pushValue val >=> return $ st
+    _   -> Left $ ProgramError ExpectedVariable
 
 -- | Evaluates an `if` operation by executing one of two quotations based on a boolean condition.
 --
@@ -209,10 +238,10 @@ applyUnaryOp op st@State{ stack = x:_ } =
 -- == Examples:
 --
 -- >>> applyIfOp (initialStateWithStack [VBool True] [TokOp OpIf, TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
--- Right State{[], [1]}
+-- Right State{[], [{ 2 },1]}
 --
 -- >>> applyIfOp (initialStateWithStack [VBool False] [TokOp OpIf, TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
--- Right State{[], [2]}
+-- Right State{[], [{ 2 },2]}
 --
 -- >>> applyIfOp (initialStateWithStack [VInt 3] [TokOp OpIf, TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
 -- Left (ProgramError ExpectedBool)
@@ -221,19 +250,21 @@ applyUnaryOp op st@State{ stack = x:_ } =
 -- Left (ProgramError ExpectedQuotation)
 --
 -- >>> applyIfOp (initialStateWithStack [] [])
--- Left (ProgramError ExpectedBool)
+-- Left (ProgramError StackEmpty)
 --
 -- >>> applyIfOp (initialStateWithStack [VBool True] [TokVal (VQuotation [])])
--- Left (ProgramError ExpectedQuotation)
+-- Left (ProgramError ExpectedVariable)
 --
 applyIfOp :: State -> Either BError State
-applyIfOp st@State{ stack = VBool cond : rest, 
-program = _ : TokVal (VQuotation q1) : TokVal (VQuotation q2) : _ } =
-  execValue . nextToken $ nextToken st { stack = chosen : rest }
-  where
-    chosen = if cond then VQuotation q1 else VQuotation q2
-applyIfOp State{ stack = VBool _ : _ } = Left $ ProgramError ExpectedQuotation
-applyIfOp _ = Left $ ProgramError ExpectedBool
+applyIfOp st@State{ stack = x : rest, program = _ : TokVal q1 : TokVal q2 : _ } =
+  case lookupValues st [x, q1, q2] of
+    [VBool cond, VQuotation path1, VQuotation path2] -> 
+      let chosen = if cond then VQuotation path1 else VQuotation path2
+      in execValue . nextToken $ nextToken st { stack = chosen : rest }
+    [_, VQuotation _, VQuotation _] -> Left $ ProgramError ExpectedBool
+    _                               -> Left $ ProgramError ExpectedQuotation
+applyIfOp State{ stack = [] }  = Left $ ProgramError StackEmpty
+applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 
 -- | Evaluates a `times` operation by executing a quotation `n` times.
 --
@@ -243,10 +274,10 @@ applyIfOp _ = Left $ ProgramError ExpectedBool
 -- == Examples:
 --
 -- >>> applyTimesOp (initialStateWithStack [VInt 3] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 1)])])
--- Right State{[], [1,1,1]}
+-- Right State{[], [times,1,1,1]}
 --
 -- >>> applyTimesOp (initialStateWithStack [VInt 0] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 42)])])
--- Right State{[], []}
+-- Right State{[], [times]}
 --
 -- >>> applyTimesOp (initialStateWithStack [VBool True] [TokOp OpTimes, TokVal (VQuotation [TokVal (VInt 1)])])
 -- Left (ProgramError ExpectedEnumerable)
@@ -261,11 +292,12 @@ applyIfOp _ = Left $ ProgramError ExpectedBool
 -- Left (ProgramError ExpectedQuotation)
 --
 applyTimesOp :: State -> Either BError State
-applyTimesOp State{ stack = [] } = Left $ ProgramError StackEmpty
-applyTimesOp st@State{ stack = x:_, program = _ : TokVal(VQuotation q1) : rest } = 
-  case x of
-    (VInt n)   -> popValue st { program = concat (replicate n q1) ++ rest }
-    _          -> Left $ ProgramError ExpectedEnumerable
+applyTimesOp st@State{ stack = x:_, program = op : TokVal q : rest } = 
+  case lookupValues st [x, q] of
+    [VInt n, VQuotation quote] -> popValue st { program = op : concat (replicate n quote) ++ rest }
+    [VInt _, _]              -> Left $ ProgramError ExpectedQuotation
+    _                        -> Left $ ProgramError ExpectedEnumerable
+applyTimesOp State{ stack = [] }  = Left $ ProgramError StackEmpty
 applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
 
 -- | Executes a quotation at the top of the stack.
@@ -286,22 +318,21 @@ applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
 -- == Examples
 --
 -- >>> execValue (initialStateWithStack [VQuotation [TokVal (VInt 1), TokVal (VInt 2)]] [TokOp OpExec, TokOp OpExec])
--- Right State{[], [1,2,exec]}
+-- Right State{[], [exec,1,2,exec]}
 --
 -- >>> execValue (initialStateWithStack [VQuotation [TokVal (VInt 1), TokVal (VInt 2)]] [TokOp OpExec])
--- Right State{[], [1,2]}
+-- Right State{[], [exec,1,2]}
 --
 -- >>> execValue (initialStateWithStack [VInt 42] [TokOp OpExec])
 -- Left (ProgramError ExpectedQuotation)
 --
 -- >>> execValue (initialStateWithStack [] [TokOp OpExec])
--- Left (ProgramError StackEmpty)
+-- Left (ProgramError ExpectedQuotation)
 --
 execValue :: State -> Either BError State
-execValue State{ stack = [], program = _ } = Left $ ProgramError StackEmpty
-execValue st@State{ stack = x:_, program = p } = case (x, p) of
-  (VQuotation q, _:rest)  -> popValue st { program = q ++ rest}
-  _              -> Left $ ProgramError ExpectedQuotation
+execValue st@State{ stack = VQuotation quote : _, program = op : rest } = 
+  popValue st { program = op : quote ++ rest }
+execValue State{ stack = _ } = Left $ ProgramError ExpectedQuotation
 
 -- | Pushes a value onto the top of the stack.
 --
