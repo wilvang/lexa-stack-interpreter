@@ -129,7 +129,7 @@ step (TokOp op) = case op of
   OpEmpty  -> applyUnaryOp safeEmpty  
   OpLength -> applyUnaryOp safeLength
   OpEach   -> applyEachOp     
-  --OpMap    -> applyMapOp   
+  OpMap    -> applyMapOp   
   --OpFoldl  -> applyFoldlOp   
   _        -> unknownOp
 
@@ -355,7 +355,7 @@ applyLoopOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 -- Left (ProgramError ExpectedQuotation)
 --
 -- >>> applyEachOp (initialStateWithStack [] [])
--- Left (ProgramError ExpectedQuotation)
+-- Left (ProgramError StackEmpty)
 --
 applyEachOp :: State -> Either BError State
 applyEachOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
@@ -367,7 +367,40 @@ applyEachOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : 
           (nextToken st')
           xs
     _ -> Left $ ProgramError ExpectedList
+applyEachOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyEachOp _ = Left $ ProgramError ExpectedQuotation
+
+-- | Applies a quotation to each element in a list and collects the results.
+--
+-- The top of the stack must be a homogeneous list, and the next token must be a quotation.
+-- For each element in the list, the quotation is executed with the element as input,
+-- and the result is collected into a new list.
+--
+-- == Examples:
+--
+-- >>> let block = TokVal (VQuotation [TokVal (VInt 10), TokOp OpMul])
+-- >>> applyMapOp (initialStateWithStack [VList [VInt 1, VInt 2, VInt 3]] [block])
+-- Right State{[[ 10 20 30 ]], []}
+--
+-- >>> applyMapOp (initialStateWithStack [VBool True] [TokVal (VQuotation [TokVal (VInt 1)])])
+-- Left (ProgramError ExpectedList)
+--
+-- >>> applyMapOp (initialStateWithStack [VList [VInt 1]] [TokVal (VInt 1)])
+-- Left (ProgramError ExpectedQuotation)
+--
+applyMapOp :: State -> Either BError State
+applyMapOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
+  case validateElements list of
+    Just (VList xs) ->
+      popValue st >>= \st' ->
+        traverse (\v -> pushValue v st' >>= pushValue block >>= execValue >>= extractTop) xs >>=
+        pushList (nextToken st')
+    _ -> Left $ ProgramError ExpectedList
+  where
+    pushList s vs = pushValue (VList vs) s
+applyMapOp State{ stack = [] } = Left $ ProgramError StackEmpty
+applyMapOp _ = Left $ ProgramError ExpectedQuotation
+
 
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
@@ -562,3 +595,21 @@ nextToken :: State -> State
 nextToken st@State{ program = [] } = st
 nextToken st@State{ program = [_] } = st { program = [] }
 nextToken st@State{ program = _:xs } = st { program = xs }
+
+-- | Extracts the top value from the stack of a given state.
+-- 
+-- This function checks if the stack has any elements. If so, it returns
+-- the top element of the stack wrapped in a `Right`. If the stack is empty,
+-- it returns a `Left` with a `ProgramError StackEmpty`.
+-- 
+-- == Examples:
+--
+-- >>> extractTop (initialStateWithStack [VInt 42] [])
+-- Right 42
+--
+-- >>> extractTop (initialStateWithStack [] [])
+-- Left (ProgramError StackEmpty)
+extractTop :: State -> Either BError Value
+extractTop st = case stack st of
+  (top:_) -> Right top
+  _       -> Left $ ProgramError StackEmpty
