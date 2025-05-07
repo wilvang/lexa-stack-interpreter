@@ -6,7 +6,7 @@ import Control.Monad ( (>=>), foldM )
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
-import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength)
+import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
 import Interpreter.State ( State(..), lookupValues, initialStateWithDict)
@@ -122,8 +122,8 @@ step (TokOp op) = case op of
   OpFun    -> assignFunc
 
   -- List operations
-  --OpCons   -> applyBinaryOp    
-  --OpAppend -> applyBinaryOp  
+  OpCons   -> applyBinaryOp safeCons   
+  OpAppend -> applyBinaryOp safeAppend 
   OpHead   -> applyUnaryOp safeHead   
   OpTail   -> applyUnaryOp safeTail  
   OpEmpty  -> applyUnaryOp safeEmpty  
