@@ -12,101 +12,9 @@ Data Types:
 1. `Value` represents values in the interpreter (integers, floats, booleans, strings, lists, quotations).
 2. `Op` represents operations (like addition, subtraction, etc.).
 3. `Token` is a wrapper for either a value or an operation.
-
->>> let vInt = VInt 10
->>> show vInt
-"10"
-
->>> let vFloat = VFloat 3.14
->>> show vFloat
-"3.14"
-
->>> let vBool = VBool True
->>> show vBool
-"True"
-
->>> let vString = VString "Hello"
->>> show vString
-"\"Hello\""
-
->>> let vList = VList [VInt 1, VInt 2, VInt 3]
->>> show vList
-"[ 1 2 3 ]"
-
->>> let vQuotation = VQuotation [TokVal (VInt 5), TokOp (OpAdd)]
->>> show vQuotation
-"{ 5 + }"
-
->>> let symbol = VSymbol "myVar"
->>> show symbol
-"myVar"
-
-Operations:
------------
-1. The `Op` type defines operations like addition, multiplication, comparison, etc.
-
->>> show OpAdd
-"+"
-
->>> show OpSub
-"-"
-
->>> show OpMul
-"*"
-
->>> show OpDiv
-"/"
-
->>> show OpIDiv
-"div"
-
->>> show OpLT
-"<"
-
->>> show OpGT
-">"
-
->>> show OpEQ
-"=="
-
->>> show OpAnd
-"&&"
-
->>> show OpOr
-"||"
-
->>> show OpNot
-"not"
-
->>> show OpExec
-"exec"
-
->>> show OpIf
-"if"
-
->>> show OpTimes
-"times"
-
->>> show OpAssign
-":="
-
->>> show OpFun
-"fun"
-
-Token Type:
-------------
-1. The `Token` type wraps either a value or an operation.
-
->>> let tVal = TokVal (VInt 42)
->>> show tVal
-"42"
-
->>> let tOp = TokOp OpAdd
->>> show tOp
-"+"
 -}
 
-module Interpreter.Types (Value(..), Op(..), Token(..)) where
+module Interpreter.Types (Value(..), Op(..), Token(..), sameConstructor) where
 
 -- | Core data types
 
@@ -257,3 +165,17 @@ instance Show Op where
 instance Show Token where
   show (TokVal v) = show v
   show (TokOp op) = show op
+
+-- | Checks whether two 'Value's have the same constructor (i.e., are of the same type),
+-- ignoring their inner contents.
+--
+-- This is useful for determining if two values are type-compatible without comparing
+-- their actual contents.
+--
+sameConstructor :: Value -> Value -> Bool
+sameConstructor (VInt _)     (VInt _)     = True
+sameConstructor (VFloat _)   (VFloat _)   = True
+sameConstructor (VBool _)    (VBool _)    = True
+sameConstructor (VString _)  (VString _)  = True
+sameConstructor (VList _)    (VList _)    = True
+sameConstructor _            _            = False
