@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend) where
+module Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend, validateElements) where
 
 import Interpreter.Types (Value(..), sameConstructor)
 import Interpreter.Error (BError(ProgramError), ProgramError(..))
