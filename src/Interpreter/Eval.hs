@@ -9,7 +9,7 @@ import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
 import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend, validateElements)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
-import Interpreter.State ( State(..), lookupValues, initialStateWithDict)
+import Interpreter.State ( State(..), lookupValue, initialStateWithDict)
 import Interpreter.Parser
 
 
@@ -34,8 +34,8 @@ import Interpreter.Parser
 -- >>> interpret "True if { 10 } { }" M.empty
 -- Right State{[10], []}
 --
--- >>> interpret "10 9 - 0.0 >" M.empty
--- Right State{[True], []}
+-- >>> interpret "5 times { 1 } [ ] 5 times { cons } 0 foldl { + }" M.empty
+-- Right State{[5], []}
 --
 -- >>> interpret "{ 1 2" M.empty
 -- Left (ParserError (IncompleteQuotation "{ 1 2"))
@@ -86,9 +86,9 @@ interpret input dict = case parseTokens input of
 -- >>> step (TokOp OpAdd) (initialStateWithStack [VInt 2] [])  -- not enough operands
 -- Right State{[2], []}
 step :: Token -> State -> Either BError State
-step (TokVal var@(VSymbol _)) = \st -> case lookupValues st [var] of
-  [val@(VQuotation _)] -> pushValue val st >>= execValue
-  _                    -> pushValue var st
+step (TokVal var@(VSymbol _)) = \st -> case lookupValue st var of
+  q@(VQuotation _) -> pushValue q st >>= execValue
+  _                -> pushValue var st
 step (TokVal val) = pushValue val
 step (TokOp op) = case op of
   -- Arithmetic operations (binary)
@@ -130,7 +130,7 @@ step (TokOp op) = case op of
   OpLength -> applyUnaryOp safeLength
   OpEach   -> applyEachOp     
   OpMap    -> applyMapOp   
-  --OpFoldl  -> applyFoldlOp   
+  OpFoldl  -> applyFoldlOp   
   _        -> unknownOp
 
 {-
@@ -140,7 +140,7 @@ step (TokOp op) = case op of
   OpParseInt -> applyParseIntOp  -- Parse an integer from input
   OpParseFloat -> applyParseFloatOp  -- Parse a float from input
   OpWords  -> applyWordsOp   -- Split a string into a list of words
- 
+
 -}
 
 -- | Discards the stack and returns a `ProgramError`.
@@ -192,7 +192,7 @@ applyBinaryOp :: (Value -> Value -> Either BError Value) -> State -> Either BErr
 applyBinaryOp _ st@State{ stack = [] } = Right st
 applyBinaryOp _ st@State{ stack = [_] } = Right st
 applyBinaryOp op st@State{ stack = x:y:_ } = 
-  case lookupValues st [x, y] of
+  case lookupValue st <$> [x, y] of
     [a, b] -> b `op` a >>= \val ->  -- Apply the binary operation to the top of the stack
       popValue >=> popValue >=> pushValue val >=> return $ st
     _      -> Left $ ProgramError ExpectedVariable
@@ -225,10 +225,9 @@ applyBinaryOp op st@State{ stack = x:y:_ } =
 applyUnaryOp :: (Value -> Either BError Value) -> State -> Either BError State
 applyUnaryOp _ st@State{ stack = [] } = Right st
 applyUnaryOp op st@State{ stack = x:_ } = 
-  case lookupValues st [x] of
-    [a] -> op a >>= \val ->
+  case lookupValue st x of
+    a -> op a >>= \val -> 
       popValue >=> pushValue val >=> return $ st
-    _   -> Left $ ProgramError ExpectedVariable
 
 -- | Evaluates an `if` operation by executing one of two quotations based on a boolean condition.
 --
@@ -257,7 +256,7 @@ applyUnaryOp op st@State{ stack = x:_ } =
 --
 applyIfOp :: State -> Either BError State
 applyIfOp st@State{ stack = x : rest, program = TokVal q1 : TokVal q2 : _ } =
-  case lookupValues st [x, q1, q2] of
+  case lookupValue st <$> [x, q1, q2] of
     [VBool cond, VQuotation path1, VQuotation path2] -> 
       let chosen = if cond then VQuotation path1 else VQuotation path2
       in execValue . nextToken $ nextToken st { stack = chosen : rest }
@@ -293,7 +292,7 @@ applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 --
 applyTimesOp :: State -> Either BError State
 applyTimesOp st@State{ stack = num : _, program = TokVal block : rest } = 
-  case lookupValues st [num, block] of
+  case lookupValue st <$> [num, block] of
     [VInt n, VQuotation quote] -> popValue st { program = concat (replicate n quote) ++ rest }
     [VInt _, _]              -> Left $ ProgramError ExpectedQuotation
     _                        -> Left $ ProgramError ExpectedEnumerable
@@ -323,12 +322,16 @@ applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
 -- Right State{[5,4,3,2,1], []}
 --
 applyLoopOp :: State -> Either BError State
-applyLoopOp st@State{ program = TokVal brk@(VQuotation _) : TokVal block@(VQuotation _) : _ } =
-  pushValue brk st >>= execValue >>= \st' ->
-    case stack st' of
-      (VBool True:_)  -> popValue . nextToken $ nextToken st'
-      (VBool False:_) -> popValue st' >>= pushValue block >>= execValue >>= applyLoopOp
-      _               -> Left $ ProgramError ExpectedBool
+applyLoopOp st@State{ program = TokVal cond : TokVal block : _ } =
+  case lookupValue st <$> [cond, block] of
+    [a@(VQuotation _), b@(VQuotation _)] -> execLoop a b
+    _ -> Left $ ProgramError ExpectedQuotation
+    where 
+      execLoop a b = pushValue a st >>= execValue >>= \st' ->
+        case stack st' of
+          (VBool True:_)  -> popValue . nextToken $ nextToken st'
+          (VBool False:_) -> popValue st' >>= pushValue b >>= execValue >>= applyLoopOp
+          _               -> Left $ ProgramError ExpectedBool
 applyLoopOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 
 -- | Executes a quotation on each element of a homogeneous list (`each` operation).
@@ -359,7 +362,7 @@ applyLoopOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 --
 applyEachOp :: State -> Either BError State
 applyEachOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
-  case validateElements list of
+  case validateElements (lookupValue st list) of
     Just (VList xs) ->
       popValue st >>= \st' ->
         foldM
@@ -390,7 +393,7 @@ applyEachOp _ = Left $ ProgramError ExpectedQuotation
 --
 applyMapOp :: State -> Either BError State
 applyMapOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
-  case validateElements list of
+  case validateElements (lookupValue st list) of
     Just (VList xs) ->
       popValue st >>= \st' ->
         traverse (\v -> pushValue v st' >>= pushValue block >>= execValue >>= extractTop) xs >>=
@@ -400,7 +403,6 @@ applyMapOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _
     pushList s vs = pushValue (VList vs) s
 applyMapOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyMapOp _ = Left $ ProgramError ExpectedQuotation
-
 
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
@@ -493,14 +495,15 @@ assignFunc = assign extractQuotation ExpectedQuotation
 -- Left (ProgramError ExpectedQuotation)
 --
 -- >>> execValue (initialStateWithStack [] [])
--- Left (ProgramError ExpectedQuotation)
+-- Left (ProgramError StackEmpty)
 --
 execValue :: State -> Either BError State
-execValue st@State{ stack = VQuotation quote : _ } = 
-   -- Execute the quotation
-  popValue st >>= \st' -> 
-    foldM (flip step) st' quote 
-execValue State{ stack = _ } = Left $ ProgramError ExpectedQuotation
+execValue st@State{ stack = quote : _ } = 
+  case lookupValue st quote of
+    VQuotation q ->  popValue st >>= \st' -> 
+      foldM (flip step) st' q
+    _            -> Left $ ProgramError ExpectedQuotation
+execValue State{ stack = [] } = Left $ ProgramError StackEmpty
 
 -- | Pushes a value onto the top of the stack.
 --
@@ -513,7 +516,7 @@ execValue State{ stack = _ } = Left $ ProgramError ExpectedQuotation
 -- Right State{[True,1], []}
 --
 pushValue :: Value -> State -> Either BError State
-pushValue val st = Right st { stack = val : stack st }
+pushValue val st = Right st { stack = lookupValue st val : stack st }
 
 -- | Removes the top value from the stack.
 -- If the stack is empty, it is returned unchanged.
@@ -611,5 +614,5 @@ nextToken st@State{ program = _:xs } = st { program = xs }
 -- Left (ProgramError StackEmpty)
 extractTop :: State -> Either BError Value
 extractTop st = case stack st of
-  (top:_) -> Right top
+  (top:_) -> Right $ lookupValue st top 
   _       -> Left $ ProgramError StackEmpty
