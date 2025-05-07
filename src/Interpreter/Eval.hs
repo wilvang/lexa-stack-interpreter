@@ -404,6 +404,47 @@ applyMapOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _
 applyMapOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyMapOp _ = Left $ ProgramError ExpectedQuotation
 
+-- | Evaluates a `foldl` operation by applying a quotation to each element in a list
+-- from left to right, carrying an accumulator.
+--
+-- The stack must contain a list and an initial accumulator. The the next 
+-- program token must be a quotation that defines a binary operation.
+-- The block is applied as:
+--   acc0 list[0] -> acc1
+--   acc1 list[1] -> acc2
+--   ...
+--   accN list[N] -> result
+-- The final result is pushed back onto the stack.
+--
+-- == Examples:
+--
+-- >>> applyFoldlOp (initialStateWithStack [VInt 20, VList [VInt 2, VInt 5]] [TokVal (VQuotation [TokOp OpIDiv])])
+-- Right State{[2], []}
+--
+-- >>> applyFoldlOp (initialStateWithStack [VList [VInt 2, VInt 5], VInt 20] [TokVal (VQuotation [TokOp OpIDiv])])
+-- Left (ProgramError ExpectedQuotation)
+--
+applyFoldlOp :: State -> Either BError State
+applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
+  case lookupValue st <$> [acc, list, block] of
+    [VSymbol _, _, _] -> Left $ ProgramError UnknownSymbol
+    [_, l@(VList _), q@(VQuotation _)] -> case validateElements l of
+      (Just (VList xs)) ->
+        popValue (nextToken st) >>= popValue >>= pushValue (lookupValue st acc) >>= \initState ->
+          foldM (foldStep q) initState xs
+      _ -> Left $ ProgramError ExpectedList
+    _ -> Left $ ProgramError ExpectedQuotation
+  where
+    foldStep q st' v =
+      extractTop st' >>= \accVal ->
+        popValue st' >>=                -- remove old accumulator
+        pushValue accVal >>=            -- push it again
+        pushValue v >>=                 -- push the current list element
+        pushValue q >>=                 -- push the block
+        execValue                       -- execute it, result becomes new accumulator
+applyFoldlOp State{ stack = [] } = Left $ ProgramError StackEmpty
+applyFoldlOp _ = Left $ ProgramError ExpectedQuotation
+
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
 -- The top of the stack must be a 'VSymbol', and the next token in the program must be a value.
