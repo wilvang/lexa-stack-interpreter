@@ -6,6 +6,7 @@ import Control.Monad ( (>=>), foldM )
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
+import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
 import Interpreter.State ( State(..), lookupValues, initialStateWithDict)
@@ -119,28 +120,27 @@ step (TokOp op) = case op of
   OpLoop   -> applyLoopOp
   OpAssign -> assignValue
   OpFun    -> assignFunc
+
+  -- List operations
+  --OpCons   -> applyBinaryOp    
+  --OpAppend -> applyBinaryOp  
+  OpHead   -> applyUnaryOp safeHead   
+  OpTail   -> applyUnaryOp safeTail  
+  OpEmpty  -> applyUnaryOp safeEmpty  
+  OpLength -> applyUnaryOp safeLength
+  --OpEach   -> applyEachOp     
+  --OpMap    -> applyMapOp   
+  --OpFoldl  -> applyFoldlOp   
   _        -> unknownOp
 
 {-
-  -- List operations
-  OpCons   -> applyConsOp    -- Prepend an item to a list
-  OpAppend -> applyAppendOp  -- Append two lists
-  OpHead   -> applyHeadOp    -- Get the head of the list
-  OpTail   -> applyTailOp    -- Get the tail of the list
-  OpEmpty  -> applyEmptyOp   -- Check if the list is empty
-  OpLength -> applyLengthOp  -- Get the length of the list
-  OpEach   -> applyEachOp    -- Apply a function to each element in the list
-  OpMap    -> applyMapOp     -- Map a function over a list
-
   -- I/O operations
   OpPrint  -> applyPrintOp   -- Print the top value from the stack
   OpRead   -> applyReadOp    -- Read input (e.g., from user or file)
   OpParseInt -> applyParseIntOp  -- Parse an integer from input
   OpParseFloat -> applyParseFloatOp  -- Parse a float from input
   OpWords  -> applyWordsOp   -- Split a string into a list of words
-
-  -- Higher-order functions
-  OpFoldl  -> applyFoldlOp   -- Apply a fold-left operation on a list
+ 
 -}
 
 -- | Discards the stack and returns a `ProgramError`.
