@@ -113,10 +113,10 @@ step (TokOp op) = case op of
   OpPop    -> popValue
 
   -- Control flow or function application
-  OpExec   -> execValue     -- Execute the quotation block
-  OpIf     -> applyIfOp     -- Handle the "if" operation
-  OpTimes  -> applyTimesOp  -- Handle the "times" operation
-  --OpLoop   -> applyNon      -- Handle the "loop" operation
+  OpExec   -> execValue
+  OpIf     -> applyIfOp
+  OpTimes  -> applyTimesOp
+  OpLoop   -> applyLoopOp
   OpAssign -> assignValue
   OpFun    -> assignFunc
   _        -> unknownOp
@@ -300,6 +300,37 @@ applyTimesOp st@State{ stack = num : _, program = TokVal block : rest } =
 applyTimesOp State{ stack = [] }  = Left $ ProgramError StackEmpty
 applyTimesOp State{ program = _ } = Left $ ProgramError ExpectedQuotation
 
+-- | Executes a loop using a break condition and a block of code.
+--   
+-- The loop takes two quotations from the program:
+--
+-- 1. A /break/ quotation that should leave a 'VBool' on the stack when executed.
+-- 2. A /block/ quotation that will be executed repeatedly as long as the break condition evaluates to 'False'.
+--
+-- The break condition is checked before each iteration. If it evaluates to 'True', the loop terminates.
+-- If it evaluates to 'False', the block is executed, and the loop repeats.
+--
+-- Both quotations are consumed from the program during the first iteration.
+--
+-- == Examples:
+--
+-- >>> applyLoopOp (initialStateWithStack [] [TokVal (VQuotation [TokVal (VBool True)]), TokVal (VQuotation [TokOp OpAdd])])
+-- Right State{[], []}
+--
+-- >>> let break = TokVal (VQuotation [TokOp OpDup, TokVal (VInt 4), TokOp OpGT])
+-- >>> let block = TokVal (VQuotation [TokOp OpDup, TokVal (VInt 1), TokOp OpAdd])
+-- >>> applyLoopOp (initialStateWithStack [VInt 1] [break, block])
+-- Right State{[5,4,3,2,1], []}
+--
+applyLoopOp :: State -> Either BError State
+applyLoopOp st@State{ program = TokVal brk@(VQuotation _) : TokVal block@(VQuotation _) : _ } =
+  pushValue brk st >>= execValue >>= \st' ->
+    case stack st' of
+      (VBool True:_)  -> popValue . nextToken $ nextToken st'
+      (VBool False:_) -> popValue st' >>= pushValue block >>= execValue >>= applyLoopOp
+      _               -> Left $ ProgramError ExpectedBool
+applyLoopOp State{ program = _ } = Left $ ProgramError ExpectedVariable
+
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
 -- The top of the stack must be a 'VSymbol', and the next token in the program must be a value.
@@ -384,8 +415,8 @@ assignFunc = assign extractQuotation ExpectedQuotation
 -- >>> execValue (initialStateWithStack [VQuotation [TokOp OpAdd], VInt 1, VInt 2] [])
 -- Right State{[3], []}
 --
--- >>> execValue (initialStateWithStack [VQuotation [TokVal (VInt 1), TokVal (VInt 2)]] [])
--- Right State{[2,1], []}
+-- >>> execValue (initialStateWithStack [VQuotation [TokOp OpDup, TokVal (VInt 4), TokOp OpGT], VInt 1] [])
+-- Right State{[False,1], []}
 --
 -- >>> execValue (initialStateWithStack [VInt 42] [])
 -- Left (ProgramError ExpectedQuotation)
