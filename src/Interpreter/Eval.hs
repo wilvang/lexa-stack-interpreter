@@ -6,7 +6,7 @@ import Control.Monad ( (>=>), foldM )
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
-import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend)
+import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend, validateElements)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
 import Interpreter.State ( State(..), lookupValues, initialStateWithDict)
@@ -128,7 +128,7 @@ step (TokOp op) = case op of
   OpTail   -> applyUnaryOp safeTail  
   OpEmpty  -> applyUnaryOp safeEmpty  
   OpLength -> applyUnaryOp safeLength
-  --OpEach   -> applyEachOp     
+  OpEach   -> applyEachOp     
   --OpMap    -> applyMapOp   
   --OpFoldl  -> applyFoldlOp   
   _        -> unknownOp
@@ -330,6 +330,44 @@ applyLoopOp st@State{ program = TokVal brk@(VQuotation _) : TokVal block@(VQuota
       (VBool False:_) -> popValue st' >>= pushValue block >>= execValue >>= applyLoopOp
       _               -> Left $ ProgramError ExpectedBool
 applyLoopOp State{ program = _ } = Left $ ProgramError ExpectedVariable
+
+-- | Executes a quotation on each element of a homogeneous list (`each` operation).
+--
+-- Pops a homogeneous list from the top of the stack and takes a quotation
+-- from the next token in the program. The quotation is executed with each element
+-- of the list as input, in sequence.
+--
+-- == Examples:
+--
+-- >>> let block = TokVal (VQuotation [TokVal (VInt 10), TokOp OpMul])
+-- >>> applyEachOp (initialStateWithStack [VList [VInt 1, VInt 2]] [block])
+-- Right State{[20,10], []}
+--
+-- >>> let block = TokVal (VQuotation [TokVal (VInt 1)])
+-- >>> applyEachOp (initialStateWithStack [VList []] [block])
+-- Right State{[], []}
+--
+-- >>> let block = TokVal (VQuotation [TokOp OpMul])
+-- >>> applyEachOp (initialStateWithStack [VList [VInt 1, VBool True]] [TokVal (VQuotation [TokVal (VInt 1)])])
+-- Left (ProgramError ExpectedList)
+--
+-- >>> applyEachOp (initialStateWithStack [VList [VInt 1]] [TokVal (VInt 1)])
+-- Left (ProgramError ExpectedQuotation)
+--
+-- >>> applyEachOp (initialStateWithStack [] [])
+-- Left (ProgramError ExpectedQuotation)
+--
+applyEachOp :: State -> Either BError State
+applyEachOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
+  case validateElements list of
+    Just (VList xs) ->
+      popValue st >>= \st' ->
+        foldM
+          (\s element -> pushValue element s >>= pushValue block >>= execValue)
+          (nextToken st')
+          xs
+    _ -> Left $ ProgramError ExpectedList
+applyEachOp _ = Left $ ProgramError ExpectedQuotation
 
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
