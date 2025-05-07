@@ -1,5 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
-module Interpreter.State (State(..), lookupValues, initialStateWithDict, initialStateWithStack) where
+module Interpreter.State (State(..), lookupValue, initialStateWithDict, initialStateWithStack) where
 
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
@@ -93,11 +93,11 @@ initialStateWithStack stk tokens = State
 -- == Examples:
 --
 -- >>> let st = initialStateWithDict (M.fromList [("x", VInt 42)]) []
--- >>> lookupValues st [VSymbol "x", VInt 1]
--- [42,1]
+-- >>> lookupValue st (VSymbol "x")
+-- 42
 --
-lookupValues :: State -> [Value] -> [Value]
-lookupValues st = fmap (\key -> fromMaybe key (lookupDict st key))
+lookupValue :: State -> Value -> Value
+lookupValue st val = fromMaybe val (lookupDict st val)
 
 -- | Attempts to look up a symbol in the state's dictionary.
 --
@@ -116,4 +116,4 @@ lookupValues st = fmap (\key -> fromMaybe key (lookupDict st key))
 --
 lookupDict :: State -> Value -> Maybe Value
 lookupDict st (VSymbol var) = Just =<< M.lookup var (dictionary st)
-lookupDict _ _ = Nothing  
+lookupDict _ _ = Nothing
