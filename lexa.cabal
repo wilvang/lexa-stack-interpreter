@@ -27,6 +27,7 @@ library
   exposed-modules:
       Interpreter.Builtins.Arithmetic
       Interpreter.Builtins.Comparison
+      Interpreter.Builtins.List
       Interpreter.Builtins.Logic
       Interpreter.Error
       Interpreter.Eval
