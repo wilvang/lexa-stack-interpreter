@@ -22,6 +22,7 @@ data ProgramError =
    | ExpectedSymbol
    | NotComparable
    | DivisionByZero
+   | EmptyList
    | ProgramFinishedWithMultipleValues
    | NumberConversionError
    deriving (Eq, Show)
