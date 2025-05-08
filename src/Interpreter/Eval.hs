@@ -422,7 +422,7 @@ applyMapOp _ = Left $ ProgramError ExpectedQuotation
 -- Right State{[2], []}
 --
 -- >>> applyFoldlOp (initialStateWithStack [VList [VInt 2, VInt 5], VInt 20] [TokVal (VQuotation [TokOp OpIDiv])])
--- Left (ProgramError ExpectedQuotation)
+-- Left (ProgramError ExpectedVariable)
 --
 applyFoldlOp :: State -> Either BError State
 applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
@@ -431,9 +431,10 @@ applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
     [_, l@(VList _), q@(VQuotation _)] -> case validateElements l of
       (Just (VList xs)) ->
         popValue (nextToken st) >>= popValue >>= pushValue (lookupValue st acc) >>= \initState ->
-          foldM (foldStep q) initState xs
-      _ -> Left $ ProgramError ExpectedList
-    _ -> Left $ ProgramError ExpectedQuotation
+            foldM (foldStep q) initState xs
+      _             -> Left $ ProgramError ExpectedList
+    [_, VList _, _] -> Left $ ProgramError ExpectedQuotation
+    _               -> Left $ ProgramError ExpectedVariable
   where
     foldStep q st' v =
       extractTop st' >>= \accVal ->
