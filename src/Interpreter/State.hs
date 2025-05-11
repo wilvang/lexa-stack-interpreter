@@ -1,5 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
-module Interpreter.State (State(..), lookupValue, initialStateWithDict, initialStateWithStack) where
+module Interpreter.State (State(..), Interrupt(..), lookupValue, setInterrupt, initialStateWithDict, initialStateWithStack) where
 
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
@@ -7,6 +7,9 @@ import Interpreter.Types (Value(..), Token(..))
 
 -- | Dictionary maps symbols to values
 type Dictionary = M.Map String Value
+
+-- Define the IO interrupt type
+data Interrupt = InputIO | OutputIO Value deriving Show 
 
 -- | The interpreter state represents the full runtime context of the interpreter.
 -- It tracks the program's progress, stores intermediate computation results,
@@ -17,7 +20,7 @@ type Dictionary = M.Map String Value
 --
 -- [@stack@]      The evaluation stack, where intermediate values are pushed and popped 
 --                during execution. Most operations manipulate this stack.
---
+-- 
 -- [@program@]    The remaining instructions to be executed. This field acts as the 
 --                instruction pointer for the interpreter.
 --
@@ -32,13 +35,13 @@ data State = State
         stack :: [Value],
         program :: [Token],
         dictionary :: Dictionary,
-        printBuffer :: [String]
+        buffer :: [Interrupt]
     }
 
 -- Custom Show instance for 'state', for printing the stack.
 instance Show State where
     show :: State -> String
-    show (State stk tokens  _ _) = "State{" ++ show stk ++ ", " ++ show tokens ++ "}"
+    show (State stk tokens _ _) = "State{" ++ show stk ++ ", " ++ show tokens ++ "}"
 
 -- | Creates an initial interpreter state with a given dictionary.
 -- This function initializes the interpreter state by setting the provided
@@ -59,7 +62,7 @@ initialStateWithDict dict tokens = State
     { stack = []
     , program = tokens
     , dictionary = dict
-    , printBuffer = []
+    , buffer = []
     }
 
 -- | Creates an interpreter state for testing with a predefined data stack.
@@ -78,7 +81,7 @@ initialStateWithStack stk tokens = State
     { stack = stk
     , program = tokens
     , dictionary = M.empty
-    , printBuffer = []
+    , buffer = []
     }
 
 -- | Looks up values in the state's dictionary if they are symbols.
@@ -117,3 +120,11 @@ lookupValue st val = fromMaybe val (lookupDict st val)
 lookupDict :: State -> Value -> Maybe Value
 lookupDict st (VSymbol var) = Just =<< M.lookup var (dictionary st)
 lookupDict _ _ = Nothing
+
+-- | Adds an 'Interrupt' to the front of the state's buffer.
+--
+-- This is used to signal that the interpreter should pause and handle
+-- an external effect like input/output.
+--
+setInterrupt :: Interrupt -> State -> State
+setInterrupt trap st@State{ buffer = rest } = st { buffer = trap : rest }
