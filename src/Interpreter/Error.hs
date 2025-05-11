@@ -15,6 +15,7 @@ data ProgramError =
    | UnknownSymbol
    | ExpectedBool
    | ExpectedBoolOrNumber
+   | ExpectedString
    | ExpectedEnumerable
    | ExpectedQuotation
    | ExpectedList
