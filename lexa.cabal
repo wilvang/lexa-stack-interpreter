@@ -25,10 +25,15 @@ source-repository head
 
 library
   exposed-modules:
-      Interpreter.Builtins
+      Interpreter.Builtins.Arithmetic
+      Interpreter.Builtins.Comparison
+      Interpreter.Builtins.List
+      Interpreter.Builtins.Logic
+      Interpreter.Builtins.StringParsing
       Interpreter.Error
       Interpreter.Eval
       Interpreter.Parser
+      Interpreter.State
       Interpreter.Tokenize
       Interpreter.Types
       Run.File
@@ -65,7 +70,6 @@ test-suite lexa-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Doctest
       Paths_lexa
   autogen-modules:
       Paths_lexa

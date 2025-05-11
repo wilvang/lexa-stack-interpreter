@@ -15,12 +15,15 @@ data ProgramError =
    | UnknownSymbol
    | ExpectedBool
    | ExpectedBoolOrNumber
+   | ExpectedString
    | ExpectedEnumerable
    | ExpectedQuotation
    | ExpectedList
    | ExpectedVariable
+   | ExpectedSymbol
    | NotComparable
    | DivisionByZero
+   | EmptyList
    | ProgramFinishedWithMultipleValues
    | NumberConversionError
    deriving (Eq, Show)

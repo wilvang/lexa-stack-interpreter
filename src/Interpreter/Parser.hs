@@ -1,4 +1,4 @@
-module Interpreter.Parser (parseTokens, parseToken) where
+module Interpreter.Parser (parseTokens) where
 
 import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
@@ -12,6 +12,9 @@ import Interpreter.Error (BError)
 -- | Convert an input string into a list of tokens by splitting it on whitespace.
 -- The function uses 'splitPreserveTokens' to split the input, and then applies 'parseToken' to each string.
 -- Returns an 'Either' with a 'ParserError' on failure or a list of 'Token' on success.
+--
+-- >>>parseTokens ""
+-- Right []
 --
 -- >>> parseTokens "1 2 +"
 -- Right [1,2,+]

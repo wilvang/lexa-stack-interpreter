@@ -12,101 +12,9 @@ Data Types:
 1. `Value` represents values in the interpreter (integers, floats, booleans, strings, lists, quotations).
 2. `Op` represents operations (like addition, subtraction, etc.).
 3. `Token` is a wrapper for either a value or an operation.
-
->>> let vInt = VInt 10
->>> show vInt
-"10"
-
->>> let vFloat = VFloat 3.14
->>> show vFloat
-"3.14"
-
->>> let vBool = VBool True
->>> show vBool
-"True"
-
->>> let vString = VString "Hello"
->>> show vString
-"\"Hello\""
-
->>> let vList = VList [VInt 1, VInt 2, VInt 3]
->>> show vList
-"[ 1 2 3 ]"
-
->>> let vQuotation = VQuotation [TokVal (VInt 5), TokOp (OpAdd)]
->>> show vQuotation
-"{ 5 + }"
-
->>> let symbol = VSymbol "myVar"
->>> show symbol
-"myVar"
-
-Operations:
------------
-1. The `Op` type defines operations like addition, multiplication, comparison, etc.
-
->>> show OpAdd
-"+"
-
->>> show OpSub
-"-"
-
->>> show OpMul
-"*"
-
->>> show OpDiv
-"/"
-
->>> show OpIDiv
-"div"
-
->>> show OpLT
-"<"
-
->>> show OpGT
-">"
-
->>> show OpEQ
-"=="
-
->>> show OpAnd
-"&&"
-
->>> show OpOr
-"||"
-
->>> show OpNot
-"not"
-
->>> show OpExec
-"exec"
-
->>> show OpIf
-"if"
-
->>> show OpTimes
-"times"
-
->>> show OpAssign
-":="
-
->>> show OpFun
-"fun"
-
-Token Type:
-------------
-1. The `Token` type wraps either a value or an operation.
-
->>> let tVal = TokVal (VInt 42)
->>> show tVal
-"42"
-
->>> let tOp = TokOp OpAdd
->>> show tOp
-"+"
 -}
 
-module Interpreter.Types (Value(..), Op(..), Token(..)) where
+module Interpreter.Types (Value(..), Op(..), Token(..), sameConstructor) where
 
 -- | Core data types
 
@@ -167,16 +75,16 @@ data Op
   | OpLength      -- Get the length of a list
   | OpEach        -- Apply a function (quotation) to each item in a list
   | OpMap         -- Apply a function (quotation) to each item in a list and return a new list
+  | OpFoldl       -- Fold left operator (list -> accumulator -> final value)
 
   -- I/O and Parsing
   | OpPrint       -- Print the top value from the stack
   | OpRead        -- Read an input (e.g., from a user or file)
+
+  -- String parsing
   | OpParseInt    -- Parse an integer from input (e.g., string -> Integer)
   | OpParseFloat  -- Parse a floating point number from input (e.g., string -> Float)
-  | OpWords       -- Convert a string into a list of words (split by space)
-
-  -- Higher-Order Functions
-  | OpFoldl       -- Fold left operator (list -> accumulator -> final value)
+  | OpWords       -- Convert a string into a list of words (split by space)  
   deriving (Eq)   -- Eq allows for comparison (e.g., checking equality between two operations)
 
 -- | Tokens are either values or operations (commands).
@@ -242,18 +150,32 @@ instance Show Op where
   show OpLength     = "length" -- Get the length of a list
   show OpEach       = "each"   -- Apply a function (quotation) to each item in a list
   show OpMap        = "map"    -- Apply a function (quotation) to each item in a list and return a new list
+  show OpFoldl      = "foldl"  -- Fold left operator (list -> accumulator -> final value)
 
   -- I/O and Parsing
   show OpPrint      = "print"  -- Print the top value from the stack
   show OpRead       = "read"   -- Read input
+
+  -- String parsing
   show OpParseInt   = "parseInt" -- Parse an integer from input
   show OpParseFloat = "parseFloat" -- Parse a floating point number from input
   show OpWords      = "words"  -- Convert a string into a list of words (split by space)
-
-  -- Higher-Order Functions
-  show OpFoldl      = "foldl"  -- Fold left operator (list -> accumulator -> final value)
 
 -- Custom Show instance for 'Token', for printing tokens.
 instance Show Token where
   show (TokVal v) = show v
   show (TokOp op) = show op
+
+-- | Checks whether two 'Value's have the same constructor (i.e., are of the same type),
+-- ignoring their inner contents.
+--
+-- This is useful for determining if two values are type-compatible without comparing
+-- their actual contents.
+--
+sameConstructor :: Value -> Value -> Bool
+sameConstructor (VInt _)     (VInt _)     = True
+sameConstructor (VFloat _)   (VFloat _)   = True
+sameConstructor (VBool _)    (VBool _)    = True
+sameConstructor (VString _)  (VString _)  = True
+sameConstructor (VList _)    (VList _)    = True
+sameConstructor _            _            = False
