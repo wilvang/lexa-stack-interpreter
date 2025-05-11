@@ -75,16 +75,16 @@ data Op
   | OpLength      -- Get the length of a list
   | OpEach        -- Apply a function (quotation) to each item in a list
   | OpMap         -- Apply a function (quotation) to each item in a list and return a new list
+  | OpFoldl       -- Fold left operator (list -> accumulator -> final value)
 
   -- I/O and Parsing
   | OpPrint       -- Print the top value from the stack
   | OpRead        -- Read an input (e.g., from a user or file)
+
+  -- String parsing
   | OpParseInt    -- Parse an integer from input (e.g., string -> Integer)
   | OpParseFloat  -- Parse a floating point number from input (e.g., string -> Float)
-  | OpWords       -- Convert a string into a list of words (split by space)
-
-  -- Higher-Order Functions
-  | OpFoldl       -- Fold left operator (list -> accumulator -> final value)
+  | OpWords       -- Convert a string into a list of words (split by space)  
   deriving (Eq)   -- Eq allows for comparison (e.g., checking equality between two operations)
 
 -- | Tokens are either values or operations (commands).
@@ -150,16 +150,16 @@ instance Show Op where
   show OpLength     = "length" -- Get the length of a list
   show OpEach       = "each"   -- Apply a function (quotation) to each item in a list
   show OpMap        = "map"    -- Apply a function (quotation) to each item in a list and return a new list
+  show OpFoldl      = "foldl"  -- Fold left operator (list -> accumulator -> final value)
 
   -- I/O and Parsing
   show OpPrint      = "print"  -- Print the top value from the stack
   show OpRead       = "read"   -- Read input
+
+  -- String parsing
   show OpParseInt   = "parseInt" -- Parse an integer from input
   show OpParseFloat = "parseFloat" -- Parse a floating point number from input
   show OpWords      = "words"  -- Convert a string into a list of words (split by space)
-
-  -- Higher-Order Functions
-  show OpFoldl      = "foldl"  -- Fold left operator (list -> accumulator -> final value)
 
 -- Custom Show instance for 'Token', for printing tokens.
 instance Show Token where
