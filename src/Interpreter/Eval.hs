@@ -8,10 +8,9 @@ import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
 import Interpreter.Builtins.StringParsing (safeWords, safeIntParse, safeFloatParse)
 import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend, validateElements)
-import Interpreter.State ( State(..), Interrupt(..), lookupValue, setInterrupt, initialStateWithDict)
+import Interpreter.State ( State(..), Interrupt(..), lookupValue, setInterrupt)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
-
 import Interpreter.Parser
 
 
@@ -21,41 +20,41 @@ import Interpreter.Parser
 --
 -- == Examples:
 --
--- -- >>> interpret "1 2 +" M.empty
+-- -- >>> interpret "1 2 +" (initialStateWithStack [] [])
 -- Right State{[3], []}
 --
--- >>> interpret "3.0 1.5 -" M.empty
+-- >>> interpret "3.0 1.5 -" (initialStateWithStack [] [])
 -- Right State{[1.5], []}
 --
--- >>> interpret "10 2 /" M.empty
+-- >>> interpret "10 2 /" (initialStateWithStack [] [])
 -- Right State{[5.0], []}
 --
--- >>> interpret "1 2 unknown_val" M.empty
+-- >>> interpret "1 2 unknown_val" (initialStateWithStack [] [])
 -- Right State{[unknown_val,2,1], []}
 --
--- >>> interpret "True if { 10 } { }" M.empty
+-- >>> interpret "True if { 10 } { }" (initialStateWithStack [] [])
 -- Right State{[10], []}
 --
--- >>> interpret "5 times { 1 } [ ] 5 times { cons } 0 foldl { + }" M.empty
+-- >>> interpret "5 times { 1 } [ ] 5 times { cons } 0 foldl { + }" (initialStateWithStack [] [])
 -- Right State{[5], []}
 --
--- >>> interpret "{ 1 2" M.empty
+-- >>> interpret "{ 1 2" (initialStateWithStack [] [])
 -- Left (ParserError (IncompleteQuotation "{ 1 2"))
 --
--- >>> interpret "10 0 /" M.empty
+-- >>> interpret "10 0 /" (initialStateWithStack [] [])
 -- Left (ProgramError DivisionByZero)
 --
--- >>> interpret "true false +" M.empty
+-- >>> interpret "true false +" (initialStateWithStack [] [])
 -- Left (ProgramError ExpectedBoolOrNumber)
 --
-interpret :: String -> M.Map String Value -> Either BError State
-interpret input dict = case parseTokens input of
+interpret :: String -> State -> Either BError State
+interpret input state@State{ program = prog } = case parseTokens input of
       Left err     -> Left err
-      Right tokens -> process (initialStateWithDict dict tokens)
+      Right tokens -> process (state { program = tokens ++ prog })
   where
     -- | Recursively processes a list of tokens, updating the stack at each step.
     process :: State -> Either BError State
-    process st@State{ buffer = [_] } = Right st
+    process st@State{ buffer = [_] } = Right st  -- I/O interrupt
     process st@State{ program = [] } = Right st  -- No more tokens to process
     process st@State{ program = token:_ } =
       case step token (nextToken st) of
@@ -145,7 +144,6 @@ step (TokOp op) = case op of
   OpParseInt   -> applyUnaryOp safeIntParse
   OpParseFloat -> applyUnaryOp safeFloatParse
   OpWords      -> applyUnaryOp safeWords  
-
 
 -- | Applies a binary operation to the top two elements of the stack.
 -- This function takes an operator and a stack, applies the operator to the 
