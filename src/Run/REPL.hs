@@ -32,3 +32,42 @@ repl st = putStr prompt >> hFlush stdout >> getLine >>= \input ->
     ""   -> repl st  -- skip empty input
     _    -> evalProgram input st >>= \newState ->
         repl newState
+
+-- | Message displayed when the REPL is started.
+--
+-- This message informs the user that the REPL has started and provides the user 
+-- with basic instructions on how to access the help menu.
+--
+startMessage :: String
+startMessage = "This is Lexa REPL-mode,  :? for help\n"
+
+-- | Message displayed when the user exits the REPL.
+--
+-- This message is shown when the user exits the REPL-mode by entering the `:q` 
+-- command.
+--
+exitMessage :: String
+exitMessage = "Exiting Lexa REPL."
+
+-- | Prompt string displayed to the user in the REPL.
+--
+-- This string is displayed every time the REPL is ready to accept user input.
+-- It serves as a visual cue to indicate that the interpreter is waiting for 
+-- further instructions from the user.
+--
+prompt :: String
+prompt = "lexa> "
+
+-- | Help message displaying available meta-commands.
+--
+-- This message provides a list of all available commands that the user can 
+-- use within the REPL. It helps the user understand how to interact with 
+-- the REPL and perform actions such as viewing the operand stack, 
+-- variable bindings, or exiting the REPL.
+--
+help :: String
+help = "Meta commands:\n" 
+    ++ ":b - prints internal variable bindings\n" 
+    ++ ":s - prints internal operand stack\n"
+    ++ ":q - exits the REPL-mode\n"
+    ++ ":? - shows the help menu\n"
