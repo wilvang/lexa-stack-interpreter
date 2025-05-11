@@ -121,10 +121,15 @@ lookupDict :: State -> Value -> Maybe Value
 lookupDict st (VSymbol var) = Just =<< M.lookup var (dictionary st)
 lookupDict _ _ = Nothing
 
--- | Adds an 'Interrupt' to the front of the state's buffer.
+-- | Adds an 'Interrupt' to the end of the state's buffer.
 --
--- This is used to signal that the interpreter should pause and handle
--- an external effect like input/output.
+-- This function implements a FIFO (First-In, First-Out) strategy for
+-- handling interrupts. That means the first interrupt added is the first
+-- to be handled. This is useful for modeling I/O where operations should 
+-- be processed in the order they were triggered.
+--
+-- For example, if multiple output operations are triggered, they will be
+-- handled in the same order they were queued.
 --
 setInterrupt :: Interrupt -> State -> State
-setInterrupt trap st@State{ buffer = rest } = st { buffer = trap : rest }
+setInterrupt trap st@State{ buffer = rest } = st { buffer = rest ++ [trap] }
