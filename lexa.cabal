@@ -38,6 +38,7 @@ library
       Interpreter.Types
       Run.File
       Run.NoFlags
+      Run.Program
       Run.REPL
   other-modules:
       Paths_lexa
