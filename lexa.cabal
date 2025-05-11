@@ -29,6 +29,7 @@ library
       Interpreter.Builtins.Comparison
       Interpreter.Builtins.List
       Interpreter.Builtins.Logic
+      Interpreter.Builtins.StringParsing
       Interpreter.Error
       Interpreter.Eval
       Interpreter.Parser
