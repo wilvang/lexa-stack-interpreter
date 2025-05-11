@@ -80,5 +80,5 @@ parseStringValue :: Read a => (a -> Value) -> Value -> Either BError Value
 parseStringValue ctor (VString s) =
   case readMaybe s of
     Just x  -> Right (ctor x)
-    Nothing -> Left $ ProgramError ExpectedEnumerable
+    Nothing -> Left $ ProgramError NumberConversionError
 parseStringValue _ _ = Left $ ProgramError ExpectedString
