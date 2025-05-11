@@ -6,10 +6,12 @@ import Control.Monad ( (>=>), foldM )
 import Interpreter.Builtins.Arithmetic (safeAdd, safeSub, safeMul, safeDiv, safeIntDiv)
 import Interpreter.Builtins.Comparison (safeEQ, safeLT, safeGT)
 import Interpreter.Builtins.Logic (safeOr, safeAnd, safeNot)
+import Interpreter.Builtins.StringParsing (safeWords, safeIntParse, safeFloatParse)
 import Interpreter.Builtins.List (safeHead, safeTail, safeEmpty, safeLength, safeCons, safeAppend, validateElements)
+import Interpreter.State ( State(..), Interrupt(..), lookupValue, setInterrupt, initialStateWithDict)
 import Interpreter.Types (Token(..), Op(..), Value(..))
 import Interpreter.Error (ProgramError(..), BError(..))
-import Interpreter.State ( State(..), lookupValue, initialStateWithDict)
+
 import Interpreter.Parser
 
 
@@ -42,6 +44,7 @@ import Interpreter.Parser
 --
 -- >>> interpret "10 0 /" M.empty
 -- Left (ProgramError DivisionByZero)
+--
 -- >>> interpret "true false +" M.empty
 -- Left (ProgramError ExpectedBoolOrNumber)
 --
@@ -52,6 +55,7 @@ interpret input dict = case parseTokens input of
   where
     -- | Recursively processes a list of tokens, updating the stack at each step.
     process :: State -> Either BError State
+    process st@State{ buffer = [_] } = Right st
     process st@State{ program = [] } = Right st  -- No more tokens to process
     process st@State{ program = token:_ } =
       case step token (nextToken st) of
@@ -85,6 +89,7 @@ interpret input dict = case parseTokens input of
 --
 -- >>> step (TokOp OpAdd) (initialStateWithStack [VInt 2] [])  -- not enough operands
 -- Right State{[2], []}
+--
 step :: Token -> State -> Either BError State
 step (TokVal var@(VSymbol _)) = \st -> case lookupValue st var of
   q@(VQuotation _) -> pushValue q st >>= execValue
@@ -130,33 +135,17 @@ step (TokOp op) = case op of
   OpLength -> applyUnaryOp safeLength
   OpEach   -> applyEachOp     
   OpMap    -> applyMapOp   
-  OpFoldl  -> applyFoldlOp   
-  _        -> unknownOp
+  OpFoldl  -> applyFoldlOp
 
-{-
   -- I/O operations
-  OpPrint  -> applyPrintOp   -- Print the top value from the stack
-  OpRead   -> applyReadOp    -- Read input (e.g., from user or file)
-  OpParseInt -> applyParseIntOp  -- Parse an integer from input
-  OpParseFloat -> applyParseFloatOp  -- Parse a float from input
-  OpWords  -> applyWordsOp   -- Split a string into a list of words
+  OpPrint  -> applyPrintOp
+  OpRead   -> Right . setInterrupt InputIO 
 
--}
+  -- String parsing
+  OpParseInt   -> applyUnaryOp safeIntParse
+  OpParseFloat -> applyUnaryOp safeFloatParse
+  OpWords      -> applyUnaryOp safeWords  
 
--- | Discards the stack and returns a `ProgramError`.
--- This function is used when an invalid or unsupported operation is encountered.
--- It consumes the current stack and returns a `Left` value with a specific error.
---
--- == Examples:
---
--- >>> unknownOp (initialStateWithStack [] [])
--- Left (ProgramError UnknownSymbol)
---
--- >>> unknownOp (initialStateWithStack [VInt 5] [])
--- Left (ProgramError UnknownSymbol)
---
-unknownOp :: State -> Either BError State
-unknownOp _ = Left . ProgramError $ UnknownSymbol
 
 -- | Applies a binary operation to the top two elements of the stack.
 -- This function takes an operator and a stack, applies the operator to the 
@@ -188,6 +177,7 @@ unknownOp _ = Left . ProgramError $ UnknownSymbol
 --
 -- >>> applyBinaryOp safeDiv (initialStateWithStack [VFloat 0.0, VFloat 6.0] [])
 -- Left (ProgramError DivisionByZero)
+--
 applyBinaryOp :: (Value -> Value -> Either BError Value) -> State -> Either BError State
 applyBinaryOp _ st@State{ stack = [] } = Right st
 applyBinaryOp _ st@State{ stack = [_] } = Right st
@@ -228,6 +218,21 @@ applyUnaryOp op st@State{ stack = x:_ } =
   case lookupValue st x of
     a -> op a >>= \val -> 
       popValue >=> pushValue val >=> return $ st
+
+-- | Applies the `OpPrint` operation.
+-- 
+-- This operation extracts the top value from the stack, pops the value below it, 
+-- and then sets the interrupt with the output of the first value.
+--
+-- The operation works as follows:
+-- 1. It extracts the top value from the stack (using `extractTop`).
+-- 2. It pops the next value from the stack (using `popValue`).
+-- 3. It then sets the interrupt with an `OutputIO` using the first value, while leaving the modified stack as the result.
+--
+applyPrintOp :: State -> Either BError State
+applyPrintOp st = extractTop st >>= \val -> 
+    popValue st >>= \st' -> 
+      Right $ setInterrupt (OutputIO val) st'
 
 -- | Evaluates an `if` operation by executing one of two quotations based on a boolean condition.
 --
@@ -445,6 +450,7 @@ applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
         execValue                       -- execute it, result becomes new accumulator
 applyFoldlOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyFoldlOp _ = Left $ ProgramError ExpectedQuotation
+
 
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
