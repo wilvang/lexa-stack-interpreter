@@ -27,8 +27,8 @@ data Interrupt = InputIO | OutputIO Value deriving Show
 -- [@dictionary@] A mapping from variable names (as 'String') to their associated 'Value's. 
 --                Used for storing user-defined variables, functions, and closures
 --
--- [@printBuffer@] A list of output messages accumulated during execution. These are 
---                 collected for later use (e.g., displayed after pure evaluation).
+-- [@buffer@] A list of interrupts accumulated during execution. These are 
+--            collected for later use (e.g., displayed after pure evaluation).
 --
 data State = State
     {  
