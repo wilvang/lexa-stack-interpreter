@@ -4,7 +4,7 @@ import Control.Monad (void)
 import qualified Data.Map as M
 import Run.Program (evalProgram)
 import Interpreter.Eval (interpret)
-import Interpreter.State (State(..), initialStateWithStack, initialStateWithDict)
+import Interpreter.State (State(..), initialStateWithDict)
 
 -- | Executes a program from a file.
 --
@@ -46,6 +46,6 @@ runFile path st = readFile path >>= \prog ->
 --
 importLib :: String -> State
 importLib lib =  
-    case interpret lib (initialStateWithStack [] []) of
+    case interpret lib (initialStateWithDict M.empty []) of
         Right State{ dictionary = dict } -> initialStateWithDict dict []
         Left _                           -> initialStateWithDict M.empty []
