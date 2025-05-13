@@ -12,10 +12,10 @@ import Interpreter.Error (BError(..), ProgramError (..))
 -- == Examples
 --
 -- >>> safeWords (VString "hello world test")
--- Right [ "hello" "world" "test" ]
+-- Right ["hello","world","test"]
 --
 -- >>> safeWords (VString "test")
--- Right [ "test" ]
+-- Right ["test"]
 --
 -- >>> safeWords (VInt 42)
 -- Left (ProgramError ExpectedString)

@@ -1,4 +1,24 @@
 {-# LANGUAGE LambdaCase #-}
+-- |
+-- Module      : Parser
+-- Description : Converts tokenized input strings into structured program values.
+-- 
+-- This module provides functionality to parse raw tokenized input (typically from
+-- the tokenizer) into a structured form suitable for evaluation by the interpreter.
+-- It handles the conversion of strings into typed 'Value's (e.g., numbers, booleans,
+-- lists, quotations) and encapsulates any parsing logic such as nesting, escape
+-- sequences, or token validation.
+--
+-- It is a critical intermediate step between lexical analysis and evaluation.
+--
+-- === Features:
+--
+-- * Parses raw tokens into 'Token' or 'Value' representations.
+-- * Supports parsing nested quotations and lists.
+-- * Detects and reports malformed structures.
+--
+-- This module is typically used after tokenization and before evaluation.
+
 module Interpreter.Parser (parseTokens) where
 
 import Text.Read (readMaybe)
