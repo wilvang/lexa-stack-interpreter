@@ -1,4 +1,4 @@
-module Interpreter.Eval.StackUtils (pushValue, popValue, dupValue, swapValue) where
+module Interpreter.Eval.Utils.StackUtils (pushValue, popValue, dupValue, swapValue) where
 
 import Interpreter.State (State(..), lookupValue)
 import Interpreter.Types (Value(..))

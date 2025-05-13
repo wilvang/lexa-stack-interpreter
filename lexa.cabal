@@ -31,7 +31,9 @@ library
       Interpreter.Builtins.Logic
       Interpreter.Builtins.StringParsing
       Interpreter.Error
-      Interpreter.Eval
+      Interpreter.Eval.ExecutionEngine
+      Interpreter.Eval.Utils.ProgramUtils
+      Interpreter.Eval.Utils.StackUtils
       Interpreter.Parser
       Interpreter.State
       Interpreter.Tokenize
@@ -71,7 +73,6 @@ test-suite lexa-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Doctest
       Paths_lexa
   autogen-modules:
       Paths_lexa
