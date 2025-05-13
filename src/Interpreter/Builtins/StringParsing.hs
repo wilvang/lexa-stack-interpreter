@@ -34,7 +34,7 @@ safeWords _ = Left $ ProgramError ExpectedString
 -- Right 123
 --
 -- >>> safeIntParse (VString "hello")
--- Left (ProgramError ExpectedEnumerable)
+-- Left (ProgramError NumberConversionError)
 --
 -- >>> safeIntParse (VFloat 3.14)
 -- Left (ProgramError ExpectedString)
@@ -52,7 +52,7 @@ safeIntParse = parseStringValue VInt
 -- Right 3.14
 --
 -- >>> safeFloatParse (VString "abc")
--- Left (ProgramError ExpectedEnumerable)
+-- Left (ProgramError NumberConversionError)
 --
 -- >>> safeFloatParse (VBool True)
 -- Left (ProgramError ExpectedString)
@@ -71,7 +71,7 @@ safeFloatParse = parseStringValue VFloat
 -- Right 42
 --
 -- >>> parseStringValue VFloat (VString "invalid")
--- Left (ProgramError ExpectedEnumerable)
+-- Left (ProgramError NumberConversionError)
 --
 -- >>> parseStringValue VFloat (VBool True)
 -- Left (ProgramError ExpectedString)

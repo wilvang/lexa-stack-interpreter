@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Interpreter.Parser (parseTokens) where
 
 import Text.Read (readMaybe)
@@ -22,6 +23,8 @@ import Interpreter.Error (BError)
 -- >>> parseTokens "\"hello\" True [ 1 2 ]"
 -- Right ["hello",True,[ 1 2 ]]
 --
+-- >>> parseTokens "{ { 10 20 + } exec } exec"
+-- Right [{ { 10 20 + } exec },exec]
 -- >>> parseTokens "1 2 [ 2 3 4 ] { \" Oh no \""
 -- Left (ParserError (IncompleteQuotation "{ \" Oh no \""))
 parseTokens :: String -> Either BError [Token]
@@ -102,7 +105,7 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
       , ("map", OpMap)
       , ("print", OpPrint)
       , ("read", OpRead)
-      , ("parseInt", OpParseInt)
+      , ("parseInteger", OpParseInt)
       , ("parseFloat", OpParseFloat)
       , ("words", OpWords)
       , ("foldl", OpFoldl)
@@ -117,7 +120,7 @@ maybeParseOp s = TokOp <$> M.lookup s opTable
 -- >>> maybeParseInt "abc"
 -- Nothing
 maybeParseInt :: String -> Maybe Token
-maybeParseInt s = TokVal . VInt <$> (readMaybe s :: Maybe Int)
+maybeParseInt s = TokVal . VInt <$> (readMaybe s :: Maybe Integer)
 
 -- | Try to parse a floating point number from a string.
 -- Returns a token wrapped in 'VFloat' if successful.
@@ -174,7 +177,7 @@ maybeParseBool _       = Nothing
 -- Nothing
 maybeParseContext :: String -> Maybe Token
 maybeParseContext s
-  | isWrapped ('"', '"') s = Just . TokVal . VString . unwrap $ s
+  | isWrapped ('"', '"') s = Just . TokVal . VString . unwords . words $ unwrap s
   | isWrapped ('[', ']') s = parseListContext s
   | isWrapped ('{', '}') s = parseQuotationContext s
   | otherwise              = Nothing
@@ -233,8 +236,11 @@ unwrap = init . drop 1
 -- >>> parseQuotationContext "{ [ \" hello \" \" world \" ] + - }"
 -- Just { [ " hello " " world " ] + - }
 parseQuotationContext :: String -> Maybe Token
-parseQuotationContext =
-  fmap (TokVal . VQuotation) . traverse (Just . parseToken) . words . unwrap
+parseQuotationContext str = 
+  case parseTokens (unwrap str) of
+    Right tokens -> Just . TokVal $ VQuotation tokens  -- If successful, wrap the result in VQuotation.
+    Left _       -> Nothing  -- If there's an error, return Nothing.
+
 
 -- | Parse a string wrapped in square brackets as a list context.
 -- It treats the content inside the brackets as a series of tokens and converts them to 'VList' values.
@@ -256,8 +262,9 @@ parseQuotationContext =
 -- >>> parseListContext "[ 1 2 - * ]"
 -- Nothing
 parseListContext :: String -> Maybe Token
-parseListContext =
-  fmap (TokVal . VList) . traverse (extractValue . parseToken) . words . unwrap
-  where
-    extractValue (TokVal v) = Just v
-    extractValue _          = Nothing
+parseListContext str =
+  case parseTokens (unwrap str) of
+    Right tokens ->
+      traverse (\case TokVal v -> Just v; _ -> Nothing) tokens
+        >>= \values -> Just (TokVal (VList values))
+    Left _ -> Nothing

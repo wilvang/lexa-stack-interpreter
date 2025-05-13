@@ -1,19 +1,27 @@
 module Main (main) where
+{-
+import Test.DocTest
+
+main :: IO ()
+main = doctest ["-isrc", "src"]
+-}
 
 import Test.Hspec
-import Interpreter.Eval (interpret) 
-import Interpreter.Types
-
-type Stack = [Value]
+import Data.List (intercalate)
+import Interpreter.State (State(..), initialStateWithStack)
+import Interpreter.Eval (interpret)
 
 
 -- | A helper function for writing test cases.
 -- Takes an input string (the program to interpret) and the expected final stack,
 -- then creates an Hspec test case that checks if the interpreter produces the 
 -- expected result.
-t :: String -> Stack -> SpecWith ()
-t input expected = it ("evaluates " ++ show input) $
-  interpret input `shouldBe` Right expected
+t :: String -> String -> Spec
+t input expected = it input $ do
+  let state = initialStateWithStack [] []  -- set up your initial state
+  case interpret input state of
+    Right result -> intercalate "," (map show (stack result)) `shouldBe` expected
+    Left err     -> expectationFailure $ "Unexpected error: " ++ show err
 
 
 -- | The main entry point for the test suite.
@@ -173,3 +181,4 @@ main = hspec $ do
      \ toList { [ ] swap times cons } fun \
      \ gen1toNum { max swap := 1 loop { dup max > } { dup 1 + } } fun \
      \ 4 gen1toNum 5 toList map odd"                            "[True,False,True,False,True]"
+

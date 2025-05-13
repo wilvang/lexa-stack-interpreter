@@ -77,7 +77,7 @@ safeEmpty = (`withValidatedList` Right . VBool . null)
 -- >>> safeLength (VList [VInt 1, VBool True])
 -- Left (ProgramError ExpectedList)
 safeLength :: Value -> Either BError Value
-safeLength = (`withValidatedList` Right . VInt . length)
+safeLength = (`withValidatedList` Right . VInt . toInteger . length)
 
 -- | Safely prepends an element to a homogeneous list.
 -- If the list is empty, any element is allowed.

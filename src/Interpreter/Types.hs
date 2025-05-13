@@ -15,13 +15,14 @@ Data Types:
 -}
 
 module Interpreter.Types (Value(..), Op(..), Token(..), sameConstructor) where
+import Data.List (intercalate)
 
 -- | Core data types
 
 -- 'Value' represents all possible values that can appear on the stack.
 data Value
   -- Primitive types
-  = VInt Int           -- Integer value
+  = VInt Integer           -- Integer value
   | VFloat Double      -- Floating-point value
   | VBool Bool         -- Boolean value (True or False)
   | VString String     -- A literal string value (e.g., "Hello")
@@ -103,7 +104,7 @@ instance Show Value where
   show (VString s)    = show s               -- Display a string as is (e.g., "hello")
 
   -- Composite Types
-  show (VList xs)     = "[ " ++ unwords (show <$> xs) ++ " ]"  -- Display list of values, separated by space
+  show (VList xs)     = "[" ++ intercalate "," (show <$> xs) ++ "]"  -- Display list of values, separated by space
   show (VQuotation q) = "{ " ++ unwords (show <$> q) ++ " }"   -- Display a quotation (code block) as space-separated tokens
 
   -- Special types
@@ -157,7 +158,7 @@ instance Show Op where
   show OpRead       = "read"   -- Read input
 
   -- String parsing
-  show OpParseInt   = "parseInt" -- Parse an integer from input
+  show OpParseInt   = "parseInteger" -- Parse an integer from input
   show OpParseFloat = "parseFloat" -- Parse a floating point number from input
   show OpWords      = "words"  -- Convert a string into a list of words (split by space)
 

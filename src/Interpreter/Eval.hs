@@ -255,17 +255,23 @@ applyPrintOp st = extractTop st >>= \val ->
 -- Left (ProgramError ExpectedVariable)
 --
 applyIfOp :: State -> Either BError State
-applyIfOp st@State{ stack = val : _, program = p1 : p2 : _ } =
+applyIfOp st@State{ stack = val : _, program = p1 : p2 : rest } =
   case lookupValue st val of
-    VBool cond -> let
-      resolve (TokVal v) = TokVal (lookupValue st v)
-      resolve op         = op
-      chosen = if cond then p1 else p2
-      in popValue st >>= \st' -> step (resolve chosen) $ nextToken (nextToken st')
-    _          -> Left $ ProgramError ExpectedBool
-applyIfOp State{ stack = [] }  = Left $ ProgramError StackEmpty
-applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
+    VBool cond ->
+      let chosen = if cond then p1 else p2
+      in popValue st >>= handleChosen chosen rest
+    _ -> Left $ ProgramError ExpectedBool
+applyIfOp State{ stack = [] } = Left $ ProgramError StackEmpty
+applyIfOp _ = Left $ ProgramError ExpectedVariable
 
+
+handleChosen :: Token -> [Token] -> State -> Either BError State
+handleChosen (TokVal v) rest st =
+  case lookupValue st v of
+    VQuotation body -> interpret "" st { program = body } >>= \st' -> pure st' { program = rest }
+    val             -> pushValue val st >>= \st' -> pure st' { program = rest }
+handleChosen op rest st =
+  step op st >>= \st' -> pure st' { program = rest }
 -- | Evaluates a `times` operation by executing a quotation `n` times.
 --
 -- The top of the stack must be a 'VInt', and the next token in the program must be a quotation.
@@ -294,7 +300,7 @@ applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 applyTimesOp :: State -> Either BError State
 applyTimesOp st@State{ stack = num : _, program = TokVal block : rest } = 
   case lookupValue st <$> [num, block] of
-    [VInt n, VQuotation quote] -> popValue st { program = concat (replicate n quote) ++ rest }
+    [VInt n, VQuotation quote] -> popValue st { program = concat (replicate (fromIntegral n) quote) ++ rest }
     [VInt _, _]              -> Left $ ProgramError ExpectedQuotation
     _                        -> Left $ ProgramError ExpectedEnumerable
 applyTimesOp State{ stack = [] }  = Left $ ProgramError StackEmpty
@@ -454,10 +460,10 @@ applyFoldlOp _ = Left $ ProgramError ExpectedQuotation
 -- The symbol is associated with the value in the dictionary.
 --
 assign :: (Value -> Maybe Value) -> ProgramError -> State -> Either BError State
-assign extract expectedError st@State{ stack = val : VSymbol sym : _ } =
+assign extract expectedError st@State{ stack = VSymbol sym : val :  _ } =
   maybe (Left $ ProgramError expectedError) 
-        (popValue . nextToken . updateDictionary sym) 
-        (extract val)
+        (popValue . updateDictionary sym) 
+        (extract (lookupValue st val))
   where
     updateDictionary key var = st { dictionary = M.insert key var (dictionary st) }
 assign _ _ State{ stack = _ } = Left $ ProgramError ExpectedSymbol

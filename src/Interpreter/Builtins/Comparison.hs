@@ -36,6 +36,7 @@ safeEQ a b = case (a, b) of
   (VFloat _, VFloat _)   -> Right . VBool $ a == b
   (VString _, VString _) -> Right . VBool $ a == b
   (VBool _, VBool _)     -> Right . VBool $ a == b
+  (VList _, VList _)     -> Right . VBool $ a == b
   _                      -> Left (ProgramError NotComparable)
 
 

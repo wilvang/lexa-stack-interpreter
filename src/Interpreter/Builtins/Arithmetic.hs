@@ -141,7 +141,7 @@ safeIntDiv a b = case (toInt a, toInt b) of
 -- 
 -- >>> toInt (VString "hello")
 -- Nothing
-toInt :: Value -> Maybe Int
+toInt :: Value -> Maybe Integer
 toInt (VInt a)   = Just a
 toInt (VFloat a) = Just $ truncate a
 toInt (VBool a)  = Just $ if a then 1 else 0
@@ -198,7 +198,7 @@ toFloat _          = Nothing
 -- 
 -- >>> toNumeric (VString "hello")
 -- Nothing
-toNumeric :: Value -> Maybe (Either Int Double)
+toNumeric :: Value -> Maybe (Either Integer Double)
 toNumeric (VFloat x) = Just . Right $ x
 toNumeric (VInt x)   = Just . Left $ x
 toNumeric (VBool x)  = Just . Left $ if x then 1 else 0
@@ -224,7 +224,7 @@ toNumeric _          = Nothing
 -- 
 -- >>> liftNumeric (+) (+) (VBool True) (VString "hei")
 -- Left (ProgramError ExpectedBoolOrNumber)
-liftNumeric :: (Int -> Int -> Int) -> (Double -> Double -> Double)
+liftNumeric :: (Integer -> Integer -> Integer) -> (Double -> Double -> Double)
             -> Value -> Value -> Either BError Value
 liftNumeric opInt opFloat a b =
   case (toNumeric a, toNumeric b) of
