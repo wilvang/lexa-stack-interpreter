@@ -25,7 +25,22 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Interpreter.Builtins.Arithmetic
+      Interpreter.Builtins.Comparison
+      Interpreter.Builtins.List
+      Interpreter.Builtins.Logic
+      Interpreter.Builtins.StringParsing
+      Interpreter.Error
+      Interpreter.Eval.ExecutionEngine
+      Interpreter.Eval.Utils.ProgramUtils
+      Interpreter.Eval.Utils.StackUtils
+      Interpreter.Parser
+      Interpreter.State
+      Interpreter.Tokenize
+      Interpreter.Types
+      Run.File
+      Run.Program
+      Run.REPL
   other-modules:
       Paths_lexa
   autogen-modules:
@@ -35,6 +50,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , containers
   default-language: Haskell2010
 
 executable lexa-exe
@@ -48,6 +64,7 @@ executable lexa-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , lexa
   default-language: Haskell2010
 
@@ -63,5 +80,8 @@ test-suite lexa-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
+    , doctest
+    , hspec
     , lexa
   default-language: Haskell2010
