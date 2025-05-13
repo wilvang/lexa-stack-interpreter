@@ -15,7 +15,7 @@ import Run.File (runFile, importLib)
 --
 -- == Behavior:
 --
--- * If the argument "r" is provided, the program starts the REPL with a predefined
+-- * If the argument "-r" is provided, the program starts the REPL with a predefined
 --   base state (which includes the standard library).
 -- * If a filename is provided as an argument, the program loads and runs the file
 --   with the given base state.
@@ -25,6 +25,6 @@ main :: IO ()
 main = readFile "app/stdlib.lexa" >>= \libCode ->
     let baseState = importLib libCode in
     getArgs >>= \case
-  "r" : _   -> putStr startMessage >> repl baseState
+  "-r" : _   -> putStr startMessage >> repl baseState
   (f : _)   -> runFile f baseState
   []        -> putStrLn "No args was provided."
