@@ -37,7 +37,6 @@ library
       Interpreter.Tokenize
       Interpreter.Types
       Run.File
-      Run.NoFlags
       Run.Program
       Run.REPL
   other-modules:
@@ -71,6 +70,7 @@ test-suite lexa-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Doctest
       Paths_lexa
   autogen-modules:
       Paths_lexa

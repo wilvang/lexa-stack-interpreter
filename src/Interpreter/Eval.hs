@@ -232,24 +232,21 @@ applyPrintOp st = extractTop st >>= \val ->
     popValue st >>= \st' -> 
       Right $ setInterrupt (OutputIO val) st'
 
--- | Evaluates an `if` operation by executing one of two quotations based on a boolean condition.
+-- | Evaluates an `if` operation by executing one of two tokens based on a boolean condition.
 --
--- The top of the stack must be a 'VBool', and the next two program tokens must be quotations.
--- The first quotation is used if the boolean is True, the second if False.
+-- The top of the stack must be a 'VBool', and the program need two tokens.
+-- The first token is used if the boolean is True, the second if False.
 --
 -- == Examples:
 --
 -- >>> applyIfOp (initialStateWithStack [VBool True] [TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
 -- Right State{[1], []}
 --
--- >>> applyIfOp (initialStateWithStack [VBool False] [TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
+-- >>> applyIfOp (initialStateWithStack [VBool False] [TokOp OpAdd, TokVal (VQuotation [TokVal (VInt 2)])])
 -- Right State{[2], []}
 --
 -- >>> applyIfOp (initialStateWithStack [VInt 3] [TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VQuotation [TokVal (VInt 2)])])
 -- Left (ProgramError ExpectedBool)
---
--- >>> applyIfOp (initialStateWithStack [VBool True] [TokVal (VQuotation [TokVal (VInt 1)]), TokVal (VInt 2)])
--- Left (ProgramError ExpectedQuotation)
 --
 -- >>> applyIfOp (initialStateWithStack [] [])
 -- Left (ProgramError StackEmpty)
@@ -258,13 +255,14 @@ applyPrintOp st = extractTop st >>= \val ->
 -- Left (ProgramError ExpectedVariable)
 --
 applyIfOp :: State -> Either BError State
-applyIfOp st@State{ stack = x : rest, program = TokVal q1 : TokVal q2 : _ } =
-  case lookupValue st <$> [x, q1, q2] of
-    [VBool cond, VQuotation path1, VQuotation path2] -> 
-      let chosen = if cond then VQuotation path1 else VQuotation path2
-      in execValue . nextToken $ nextToken st { stack = chosen : rest }
-    [_, VQuotation _, VQuotation _] -> Left $ ProgramError ExpectedBool
-    _                               -> Left $ ProgramError ExpectedQuotation
+applyIfOp st@State{ stack = val : _, program = p1 : p2 : _ } =
+  case lookupValue st val of
+    VBool cond -> let
+      resolve (TokVal v) = TokVal (lookupValue st v)
+      resolve op         = op
+      chosen = if cond then p1 else p2
+      in popValue st >>= \st' -> step (resolve chosen) $ nextToken (nextToken st')
+    _          -> Left $ ProgramError ExpectedBool
 applyIfOp State{ stack = [] }  = Left $ ProgramError StackEmpty
 applyIfOp State{ program = _ } = Left $ ProgramError ExpectedVariable
 
@@ -456,9 +454,9 @@ applyFoldlOp _ = Left $ ProgramError ExpectedQuotation
 -- The symbol is associated with the value in the dictionary.
 --
 assign :: (Value -> Maybe Value) -> ProgramError -> State -> Either BError State
-assign extract expectedError st@State{ stack = VSymbol x:_, program = TokVal val : _ } =
+assign extract expectedError st@State{ stack = val : VSymbol sym : _ } =
   maybe (Left $ ProgramError expectedError) 
-        (popValue . nextToken . updateDictionary x) 
+        (popValue . nextToken . updateDictionary sym) 
         (extract val)
   where
     updateDictionary key var = st { dictionary = M.insert key var (dictionary st) }
