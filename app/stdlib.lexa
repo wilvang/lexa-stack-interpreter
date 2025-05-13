@@ -1,1 +1,275 @@
-hei 10 :=
+inc { 1 + } fun
+
+dec { 1 - } fun
+
+double { 2 * } fun
+
+square { dup * } fun
+
+odd { dup 2 div swap 2 / == if False True } fun
+
+even { odd not } fun
+
+factorial {
+    dup 1 == 
+    if 
+    { }  
+    { dup 1 > 
+        if 
+        { dup 1 - factorial * } 
+        { pop 1 } 
+    }
+} fun
+
+range {
+    [ ] swap
+    dup 0 >
+    loop { dup 0 > } {
+        dup
+        -rot cons
+        swap 1 - swap
+    }
+    pop
+} fun
+
+sum { 0 foldl + } fun
+
+max { dup2 > if swap pop pop } fun
+
+min { dup2 < if swap pop pop } fun
+
+dup2 { swap dup -rot dup -rot } fun
+
+rot { -rot swap } fun
+
+-rot { swap rot } fun
+
+println { print } fun
+
+write { print } fun
+
+replicate { swap range map pop } fun
+
+iterate { swap range pop swap dup2 times swap pop } fun
+
+join {
+    swap dup empty if
+    { pop pop "" }
+    { swap }
+} fun
+
+toString { dup dup } fun
+
+id { } fun
+
+abs { dup 0 < if { -1 * } { } } fun
+
+pow {
+    swap 1 swap
+    0 swap >
+    loop { dup 0 > } {
+        rot rot dup rot rot *
+        rot 1 - rot rot
+    }
+    pop swap pop
+} fun
+
+mod { dup2 div dup2 * -rot swap - } fun
+
+isqrt {
+    dup 0 <= if
+    { pop 0 }
+    { 
+        1 swap
+        loop
+        { dup2 square > }
+        { 1 + }
+        swap pop
+    }
+} fun
+
+gcd {
+    loop
+    { dup 0 > }
+    { dup2 mod swap }
+    swap pop
+} fun
+
+lcm {
+    dup2 * -rot
+    gcd /
+} fun
+
+fibonacci {
+    dup 0 <= if
+    { pop 0 }
+    { dup 1 == if
+      { pop 1 }
+      { dup 1 - fibonacci swap 2 - fibonacci + }
+    }
+} fun
+
+take {
+    dup 0 <= if
+    { pop pop [ ] }
+    { swap dup empty if
+      { pop pop [ ] }
+      { swap 1 - swap dup head -rot tail swap take swap cons }
+    }
+} fun
+
+drop {
+    dup 0 <= if
+    { pop }
+    { swap dup empty if
+      { pop pop [ ] }
+      { tail swap 1 - swap drop }
+    }
+} fun
+
+filter {
+    swap dup empty if
+    { pop pop [ ] }
+    { dup head rot dup rot exec if
+      { rot tail rot filter rot cons }
+      { rot tail rot filter }
+    }
+} fun
+
+contains {
+    swap dup empty if
+    { pop pop False }
+    { dup head rot == if
+      { pop pop True }
+      { tail swap contains }
+    }
+} fun
+
+indexOf {
+    0 -rot 
+    loop
+    { dup empty not }
+    { 
+        dup head rot2 == if
+        { pop pop swap }
+        { swap 1 + swap tail swap }
+    }
+    dup empty if
+    { pop pop -1 }
+    { pop swap }
+} fun
+
+zip {
+    swap dup empty if
+    { pop pop [ ] }
+    { rot dup empty if
+      { pop pop pop [ ] }
+      { dup head -rot tail rot dup head -rot tail
+        rot2 zip
+        [ rot2 ] cons
+      }
+    }
+} fun
+
+reverse {
+    [ ] swap
+    dup empty if
+    { pop }
+    { 
+        loop
+        { dup empty not }
+        { dup head rot cons swap tail swap }
+        pop
+    }
+} fun
+
+at {
+    swap dup empty if
+    { pop pop "Error: Index out of bounds" }
+    { swap dup 0 == if
+      { pop head }
+      { 1 - swap tail swap at }
+    }
+} fun
+
+strlen { length } fun
+
+startsWith {
+    swap dup length rot dup length rot > if
+    { pop pop False }
+    { swap dup rot take == }
+} fun
+
+endsWith {
+    swap dup length rot dup length rot2 dup length swap - drop swap == 
+} fun
+
+strContains {
+    swap dup empty if
+    { pop pop False }
+    { dup2 startsWith if
+      { pop pop True }
+      { tail swap strContains }
+    }
+} fun
+
+xor { dup2 || -rot && not && } fun
+
+nand { && not } fun
+
+nor { || not } fun
+
+swap3 { rot swap } fun
+
+dropn {
+    0 swap
+    loop { dup2 > } 
+    { 1 + swap pop swap }
+    pop pop
+} fun
+
+dupn {
+    dup 0 <= if
+    { pop }
+    { 1 - dup2 swap execute swap 1 + swap }
+} fun
+
+dip {
+    swap rot exec swap
+} fun
+
+dip2 {
+    swap -rot dup2 swap execute -rot swap
+} fun
+
+compose {
+    swap { swap exec } swap { swap exec } concat
+} fun
+
+when {
+    swap if { exec } { pop }
+} fun
+
+unless {
+    swap not if { exec } { pop }
+} fun
+
+until {
+    swap [ ] -rot
+    loop
+    { dup2 exec not }
+    { 
+        dup2 swap rot
+        dup2 swap rot exec rot cons swap
+    }
+    rot drop rot drop
+} fun
+
+foreach {
+    swap dup empty if
+    { pop pop }
+    {
+        dup head rot dup rot exec print
+        swap tail swap foreach
+    }
+} fun
