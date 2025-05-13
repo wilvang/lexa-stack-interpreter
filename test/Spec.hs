@@ -1,15 +1,9 @@
 module Main (main) where
-{-
-import Test.DocTest
-
-main :: IO ()
-main = doctest ["-isrc", "src"]
--}
 
 import Test.Hspec
 import Data.List (intercalate)
 import Interpreter.State (State(..), initialStateWithStack)
-import Interpreter.Eval (interpret)
+import Interpreter.Eval.ExecutionEngine (interpret)
 
 
 -- | A helper function for writing test cases.
@@ -181,4 +175,3 @@ main = hspec $ do
      \ toList { [ ] swap times cons } fun \
      \ gen1toNum { max swap := 1 loop { dup max > } { dup 1 + } } fun \
      \ 4 gen1toNum 5 toList map odd"                            "[True,False,True,False,True]"
-
