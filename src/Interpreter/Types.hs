@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-|
 Module      : Interpreter.Types
 Description : Defines the types and operations for the interpreter.
@@ -14,15 +15,13 @@ Data Types:
 3. `Token` is a wrapper for either a value or an operation.
 -}
 
-module Interpreter.Types (Value(..), Op(..), Token(..), sameConstructor) where
+module Interpreter.Types (Value(..), Op(..), Token(..)) where
 import Data.List (intercalate)
 
--- | Core data types
-
--- 'Value' represents all possible values that can appear on the stack.
+-- | 'Value' represents all possible values that can appear on the stack.
 data Value
   -- Primitive types
-  = VInt Integer           -- Integer value
+  = VInt Integer       -- Integer value
   | VFloat Double      -- Floating-point value
   | VBool Bool         -- Boolean value (True or False)
   | VString String     -- A literal string value (e.g., "Hello")
@@ -35,7 +34,7 @@ data Value
   | VSymbol String     -- A symbol, typically used for variable or function names (e.g., `name` or `inc`)
   deriving (Eq)        -- Eq allows for comparison (e.g., checking equality between two values)
 
--- | Operations (Op) represent the various commands and operators in the language.
+-- | Operations ('Op') represent the various commands and operators in the language.
 data Op
   -- Arithmetic Operations
   = OpAdd         -- Addition operator (x + y)
@@ -78,11 +77,11 @@ data Op
   | OpMap         -- Apply a function (quotation) to each item in a list and return a new list
   | OpFoldl       -- Fold left operator (list -> accumulator -> final value)
 
-  -- I/O and Parsing
+  -- I/O Operations
   | OpPrint       -- Print the top value from the stack
   | OpRead        -- Read an input (e.g., from a user or file)
 
-  -- String parsing
+  -- String Parsing
   | OpParseInt    -- Parse an integer from input (e.g., string -> Integer)
   | OpParseFloat  -- Parse a floating point number from input (e.g., string -> Float)
   | OpWords       -- Convert a string into a list of words (split by space)  
@@ -98,21 +97,23 @@ data Token
 -- Custom Show instance for 'Value', for printing values.
 instance Show Value where
   -- Primitive types
-  show (VInt n)       = show n               -- Display an integer as is
-  show (VFloat f)     = show f               -- Display a floating-point number as is
-  show (VBool b)      = show b               -- Display a boolean as is (True or False)
-  show (VString s)    = show s               -- Display a string as is (e.g., "hello")
+  show :: Value -> String
+  show (VInt n)       = show n      -- Display an integer as is
+  show (VFloat f)     = show f      -- Display a floating-point number as is
+  show (VBool b)      = show b      -- Display a boolean as is (True or False)
+  show (VString s)    = show s      -- Display a string as is (e.g., "hello")
 
-  -- Composite Types
+  -- Composite Types             
   show (VList xs)     = "[" ++ intercalate "," (show <$> xs) ++ "]"  -- Display list of values, separated by space
   show (VQuotation q) = "{ " ++ unwords (show <$> q) ++ " }"   -- Display a quotation (code block) as space-separated tokens
 
   -- Special types
-  show (VSymbol s)    = s                     -- Display the symbol as is (e.g., variable name 'name')
+  show (VSymbol s)    = s           -- Display the symbol as is (e.g., variable name 'name')
 
 -- Custom Show instance for 'Op', for printing operations.
 instance Show Op where
   -- Arithmetic Operations
+  show :: Op -> String
   show OpAdd        = "+"      -- Addition operator (x + y)
   show OpSub        = "-"      -- Subtraction operator (x - y)
   show OpMul        = "*"      -- Multiplication operator (x * y)
@@ -153,7 +154,7 @@ instance Show Op where
   show OpMap        = "map"    -- Apply a function (quotation) to each item in a list and return a new list
   show OpFoldl      = "foldl"  -- Fold left operator (list -> accumulator -> final value)
 
-  -- I/O and Parsing
+  -- I/O Operations
   show OpPrint      = "print"  -- Print the top value from the stack
   show OpRead       = "read"   -- Read input
 
@@ -164,19 +165,6 @@ instance Show Op where
 
 -- Custom Show instance for 'Token', for printing tokens.
 instance Show Token where
+  show :: Token -> String
   show (TokVal v) = show v
   show (TokOp op) = show op
-
--- | Checks whether two 'Value's have the same constructor (i.e., are of the same type),
--- ignoring their inner contents.
---
--- This is useful for determining if two values are type-compatible without comparing
--- their actual contents.
---
-sameConstructor :: Value -> Value -> Bool
-sameConstructor (VInt _)     (VInt _)     = True
-sameConstructor (VFloat _)   (VFloat _)   = True
-sameConstructor (VBool _)    (VBool _)    = True
-sameConstructor (VString _)  (VString _)  = True
-sameConstructor (VList _)    (VList _)    = True
-sameConstructor _            _            = False
