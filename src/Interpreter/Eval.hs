@@ -407,15 +407,14 @@ applyEachOp st = Left . ProgramError $ ExpectedQuotation st
 -- Left (ProgramError ExpectedQuotation)
 --
 applyMapOp :: State -> Either BError State
-applyMapOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
-  case  lookupValue st list of
-    VList xs ->
-      popValue st >>= \st' ->
-        traverse (\v -> pushValue v st' >>= pushValue block >>= execValue >>= extractTop) xs >>=
-        pushList (nextToken st')
+applyMapOp st@State{ stack = list : _, program = block : _ } =
+  case lookupValue st list of
+    VList xs -> do
+      st' <- popValue st
+      let blockVal = checkBlock st block
+      results <- traverse (applyBlock st' blockVal) xs
+      pushValue (VList results) (nextToken st')
     _ -> Left $ ProgramError ExpectedList
-  where
-    pushList s vs = pushValue (VList vs) s
 applyMapOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyMapOp st = Left . ProgramError $ ExpectedQuotation st
 
@@ -460,6 +459,17 @@ applyFoldlOp st@State{ stack =  acc : list : _, program = block : _ } =
         execValue                       -- execute it, result becomes new accumulator
 applyFoldlOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyFoldlOp st = Left . ProgramError $ ExpectedQuotation st
+
+-- | Ensures the given block is a quotation and applies it to a single value.
+-- The value is pushed onto the stack, the quotation is set as the new program,
+-- and the interpreter is run. The result is the top value from the resulting state.
+--
+-- Returns an error if the first argument is not a quotation.
+--
+applyBlock :: State -> Value -> Value -> Either BError Value
+applyBlock st (VQuotation q) v =
+  pushValue v st >>= (`withProgram` q) >>= interpret "" >>= extractTop
+applyBlock st _ _ = Left . ProgramError $ ExpectedQuotation st
 
 -- | Wraps a token into a quotation block, resolving variables if needed.
 --
@@ -705,3 +715,12 @@ extractTop st = case stack st of
 updateList :: State -> Value -> Maybe Value
 updateList st (VList xs) = Just . VList $ lookupValue st <$> xs 
 updateList _ _ = Nothing
+
+-- | Replaces the state's program with the given quotation.
+--
+-- This function takes the current state and a list of tokens (`[Token]`), and returns a new state where
+-- the program is updated with the provided list of tokens. The function returns `Right` with the updated
+-- state if the operation is successful, and an error is returned if any issues arise.
+-- 
+withProgram :: State -> [Token] -> Either BError State
+withProgram st q = Right st { program = q }
