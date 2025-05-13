@@ -20,8 +20,8 @@ import Interpreter.Error (BError)
 -- >>> parseTokens "1 2 +"
 -- Right [1,2,+]
 --
--- >>> parseTokens "\"hello\" True [ 1 2 ]"
--- Right ["hello",True,[ 1 2 ]]
+-- >>> parseTokens "\" hello \" True [ 1 2 ]"
+-- Right ["hello",True,[1,2]]
 --
 -- >>> parseTokens "{ { 10 20 + } exec } exec"
 -- Right [{ { 10 20 + } exec },exec]
@@ -43,7 +43,7 @@ parseTokens = fmap (fmap parseToken) . splitPreserveTokens
 -- >>> parseToken "True"
 -- True
 --
--- >>> parseToken "\"hello\""
+-- >>> parseToken "\" hello \""
 -- "hello"
 --
 -- >>> parseToken "+"
@@ -162,22 +162,22 @@ maybeParseBool _       = Nothing
 -- Example:
 --
 -- >>> maybeParseContext "\" Hello, world! \""
--- Just " Hello, world! "
+-- Just "Hello, world!"
 --
--- >>> maybeParseContext "[1, 2, 3]"
--- Just [ 1, 2, 3 ]
+-- >>> maybeParseContext "[ 1 2 3 ]"
+-- Just [1,2,3]
 --
 -- >>> maybeParseContext "{ foo }"
 -- Just { foo }
 --
 -- >>> maybeParseContext "{ 1 [ 1 2 3 ] + - }"
--- Just { 1 [ 1 2 3 ] + - }
+-- Just { 1 [1,2,3] + - }
 --
 -- >>> maybeParseContext "Hello"
 -- Nothing
 maybeParseContext :: String -> Maybe Token
 maybeParseContext s
-  | isWrapped ('"', '"') s = Just . TokVal . VString . unwords . words $ unwrap s
+  | isWrapped ('"', '"') s = Just . TokVal . VString $ unwrap s
   | isWrapped ('[', ']') s = parseListContext s
   | isWrapped ('{', '}') s = parseQuotationContext s
   | otherwise              = Nothing
@@ -211,16 +211,16 @@ isWrapped (open, close) s = case uncons s of
 --
 -- Example:
 --
--- >>> unwrap "\"Hello, world!\""
+-- >>> unwrap "\" Hello, world! \""
 -- "Hello, world!"
 --
--- >>> unwrap "[1, 2, 3]"
+-- >>> unwrap "[ 1, 2, 3 ]"
 -- "1, 2, 3"
 --
--- >>> unwrap "{foo}"
+-- >>> unwrap "{ foo }"
 -- "foo"
 unwrap :: String -> String
-unwrap = init . drop 1
+unwrap = reverse . drop 2 . reverse . drop 2
 
 -- | Parse a string wrapped in curly braces as a quotation context.
 -- It treats the content inside the braces as a series of tokens, creating a 'TokVal' of 'VQuotation'.
@@ -234,7 +234,7 @@ unwrap = init . drop 1
 -- Just { bar baz }
 --
 -- >>> parseQuotationContext "{ [ \" hello \" \" world \" ] + - }"
--- Just { [ " hello " " world " ] + - }
+-- Just { ["hello","world"] + - }
 parseQuotationContext :: String -> Maybe Token
 parseQuotationContext str = 
   case parseTokens (unwrap str) of
@@ -247,14 +247,14 @@ parseQuotationContext str =
 --
 -- Example:
 --
--- >>> parseListContext "[1, 2, 3]"
--- Just [ 1, 2, 3 ]
+-- >>> parseListContext "[ 1 2 3 ]"
+-- Just [1,2,3]
 --
--- >>> parseListContext "[\"apple\", \"banana\"]"
--- Just [ "apple", "banana" ]
+-- >>> parseListContext "[ \" apple \" \" banana \" ]"
+-- Just ["apple","banana"]
 --
 -- >>> parseListContext "[ foo ]"
--- Just [ foo ]
+-- Just [foo]
 --
 -- >>> parseListContext "[ + + - * ]"
 -- Nothing
