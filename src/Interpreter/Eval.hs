@@ -303,13 +303,13 @@ handleChosen op rest st =
 -- Left (ProgramError ExpectedQuotation)
 --
 applyTimesOp :: State -> Either BError State
-applyTimesOp st@State{ stack = num : _, program = TokVal block : rest } = 
-  case lookupValue st <$> [num, block] of
-    [VInt n, VQuotation quote] -> popValue st { program = concat (replicate (fromIntegral n) quote) ++ rest }
-    [VInt _, _]              -> Left . ProgramError $ ExpectedQuotation st
+applyTimesOp st@State{ stack = num : _, program = block : rest } = 
+  case (lookupValue st num, checkBlock st block) of
+    (VInt n, VQuotation q) -> popValue st { program = concat (replicate (fromIntegral n) q) ++ rest }
     _                        -> Left $ ProgramError ExpectedEnumerable
 applyTimesOp State{ stack = [] }  = Left $ ProgramError StackEmpty
-applyTimesOp st = Left . ProgramError $ ExpectedQuotation st
+applyTimesOp st@State{ program = _ } = Left . ProgramError $ ExpectedQuotation st
+
 
 -- | Executes a loop using a break condition and a block of code.
 --   
@@ -374,12 +374,14 @@ applyLoopOp st = Left . ProgramError $ ExpectedVariable st
 -- Left (ProgramError StackEmpty)
 --
 applyEachOp :: State -> Either BError State
-applyEachOp st@State{ stack = list : _, program = TokVal block@(VQuotation _) : _ } =
+applyEachOp st@State{ stack = list : _, program = block : _ } =
   case lookupValue st list of
     VList xs ->
       popValue st >>= \st' ->
         foldM
-          (\s element -> pushValue element s >>= pushValue block >>= execValue)
+          (\s element -> pushValue element s 
+          >>= pushValue (checkBlock st block)
+          >>= execValue)
           (nextToken st')
           xs
     _ -> Left $ ProgramError ExpectedList
@@ -438,14 +440,14 @@ applyMapOp st = Left . ProgramError $ ExpectedQuotation st
 -- Left (ProgramError ExpectedVariable)
 --
 applyFoldlOp :: State -> Either BError State
-applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
-  case lookupValue st <$> [acc, list, block] of
+applyFoldlOp st@State{ stack =  acc : list : _, program = block : _ } =
+  case lookupValue st <$> [acc, list] of
     [VSymbol _, _, _] -> Left $ ProgramError UnknownSymbol
-    [_, VList xs, q@(VQuotation _)] -> popValue (nextToken st) 
+    [a, VList v] -> popValue (nextToken st) 
       >>= popValue 
-      >>= pushValue (lookupValue st acc) 
-      >>= \initState -> 
-        foldM (foldStep q) initState xs
+      >>= pushValue a 
+      >>= \initState ->
+        foldM (foldStep (checkBlock st block)) initState v
     [_, VList _, _] -> Left . ProgramError $ ExpectedQuotation st
     _               -> Left . ProgramError $ ExpectedVariable st
   where
@@ -459,6 +461,20 @@ applyFoldlOp st@State{ stack =  acc : list : _, program = TokVal block : _ } =
 applyFoldlOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyFoldlOp st = Left . ProgramError $ ExpectedQuotation st
 
+-- | Wraps a token into a quotation block, resolving variables if needed.
+--
+-- If the token is a value:
+--   * If it's a quotation, it returns it directly.
+--   * Otherwise, it resolves the value and wraps it in a singleton quotation.
+--
+-- If the token is an operation, it wraps it as a single-element quotation.
+--
+checkBlock :: State -> Token -> Value
+checkBlock st tok = case tok of
+  TokVal v -> case lookupValue st v of
+    VQuotation q -> VQuotation q
+    val            -> VQuotation [TokVal val]
+  TokOp op -> VQuotation [TokOp op]
 
 -- | Assigns a value to a symbol in the state dictionary. The first operation in the program must be `OpAssign`.
 --
