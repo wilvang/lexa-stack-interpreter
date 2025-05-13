@@ -255,15 +255,27 @@ applyPrintOp st = extractTop st >>= \val ->
 -- Left (ProgramError ExpectedVariable)
 --
 applyIfOp :: State -> Either BError State
-applyIfOp st@State{ stack = x : rest, program = TokVal q1 : TokVal q2 : _ } =
-  case lookupValue st <$> [x, q1, q2] of
-    [VBool cond, VQuotation path1, VQuotation path2] -> 
-      let chosen = if cond then VQuotation path1 else VQuotation path2
-      in execValue . nextToken $ nextToken st { stack = chosen : rest }
-    [_, VQuotation _, VQuotation _] -> Left $ ProgramError ExpectedBool
-    _                               -> Left . ProgramError $ ExpectedQuotation st
-applyIfOp State{ stack = [] }  = Left $ ProgramError StackEmpty
+applyIfOp st@State{ stack = val : _, program = p1 : p2 : rest } =
+  case lookupValue st val of
+    VBool cond ->
+      let chosen = if cond then p1 else p2
+      in popValue st >>= handleChosen chosen rest
+    _ -> Left $ ProgramError ExpectedBool
+applyIfOp State{ stack = [] } = Left $ ProgramError StackEmpty
 applyIfOp st = Left . ProgramError $ ExpectedVariable st
+
+-- | Handles a single chosen 'Token' during evaluation.
+-- If the token is a value, it either evaluates its quotation or pushes the resolved value onto the stack.
+-- If the token is an operation, it applies the operation using 'step'.
+-- After handling, the state's program is updated to continue with the remaining tokens.
+--
+handleChosen :: Token -> [Token] -> State -> Either BError State
+handleChosen (TokVal v) rest st =
+  case lookupValue st v of
+    VQuotation body -> interpret "" st { program = body } >>= \st' -> pure st' { program = rest }
+    val             -> pushValue val st >>= \st' -> pure st' { program = rest }
+handleChosen op rest st =
+  step op st >>= \st' -> pure st' { program = rest }
 
 -- | Evaluates a `times` operation by executing a quotation `n` times.
 --
