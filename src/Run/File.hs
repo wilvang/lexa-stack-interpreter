@@ -3,7 +3,7 @@ module Run.File (runFile, importLib) where
 import Control.Monad (void)
 import qualified Data.Map as M
 import Run.Program (evalProgram)
-import Interpreter.Eval (interpret)
+import Interpreter.Eval.ExecutionEngine (interpret)
 import Interpreter.State (State(..), initialStateWithDict)
 
 -- | Executes a program from a file.

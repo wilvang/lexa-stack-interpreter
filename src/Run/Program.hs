@@ -1,8 +1,8 @@
-module Run.Program (evalProgram, interpretIO, eol) where
+module Run.Program (evalProgram, interpretIO, eol, errorEmptyStack, errorMultipleValues) where
 
 import Interpreter.State (State(..), Interrupt(..))
 import Interpreter.Types (Value(..))
-import Interpreter.Eval (interpret)
+import Interpreter.Eval.ExecutionEngine (interpret)
 
 -- | Evaluates a program and processes the state of the stack after execution.
 --
