@@ -148,12 +148,12 @@ Strings (`VString`) are both literals and composite types. They behave like list
 
 ```lexa
 " Hello, " "  world! " append     # => "Hello, world!"
-True [ 1 2 3 ] cons       		  # => [True,1,2,3]
+True [ 1 2 3 ] cons               # => [True,1,2,3]
 ```
 ## Quotations
 Quotations are unevaluated blocks of code written with `{ ... }`. They are first-class values used for deferred execution, control flow, and higher-order functions. You evaluate a quotation with `exec`.
 ```lexa
-{ 1 2 + print } exec          					# => prints 3
+{ 1 2 + print } exec                            # => prints 3
 True if { "yes" print }  { "no" print }         # => prints "yes"
 ```
 # Native functionallity
