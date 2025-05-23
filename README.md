@@ -233,3 +233,39 @@ For example, addition is written as `( x y -- sum )`, meaning it takes two value
 |--------|-------------|
 | `:=`   | `( value name -- )` assigns a value to a symbol. |
 | `fun`  | `( quotation name -- )` defines a named function. |
+
+## Examples from the `stdlib`
+This is the fibonacci sequence implemented in Lexa.
+```lexa
+fibonacci {
+    dup 0 <= if
+    { pop 0 }
+    { dup 1 == if
+      { pop 1 }
+      { dup 1 - fibonacci swap 2 - fibonacci + }
+    }
+} fun
+```
+
+# Further development
+### Tuples
+- Add `VTuple` type (fixed-size, immutable).
+- Syntax examples: `( 1 2 "a" )` or `[1 2 "a"] tuple`.
+- Support tuple creation and unpacking.
+
+### Comments
+- Single-line comments: start with `--` and extend to end of line.
+- Optional multi-line comments: `-- comment --`.
+- Comments are stripped during lexing before parsing.
+
+### Variable Rebinding
+- Allow `:=` operator to overwrite existing symbol bindings.
+- Optionally add `const` keyword for immutable variables.
+- Support variable shadowing if scoped environments are added.
+
+### Extended IO
+- File operations: `openFile`, `readFile`, `writeFile`, `closeFile`.
+- Networking: HTTP requests like `httpGet` and `httpPost`.
+- IO operations handled as interrupts to preserve pure evaluation.
+- Utilize Haskell libraries such as `network` and `http-client`.
+
